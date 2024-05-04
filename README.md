@@ -15,9 +15,40 @@
 - for flow control: window size in acks
 - for congestion control: aimd, slow start, loss based?
 
+
+Questions:
+- can we move the FrameID into the general MessageType? Is it used by every packet?
+- do we (not) need a general message format?
+
+# Message Formats
+
+## General Message Format
+We need a general message format for all messages. Compare with
+- Common Header defintions: https://grnvs.net.in.tum.de/cheatsheet.pdf
+- SSH File Transfer Protocol: https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-13#section-4
+- SHH File Transfer Protocol Packet Types: https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-13#section-4.3
+
+```
+Message {
+  U32 Length
+  U8 MessageType
+  U16 ConnectionID
+  U64 FrameID
+  ... payload depending on MsgType
+}
+```
+MessageType values:
+
+0. Init // or leave free and make Init = 1?
+1. Connection
+2. Data
+3. Ack
+4. Error
+6. Command
+
 ## Headers
 - Connection Header
-  - Connection ID, 0 for client hello, server sends back connection id
+  - ConnectionID // 0: client hello, server sends back connection id
   - Next Header
 
 - Data Header
@@ -25,32 +56,34 @@
   - Length
   - Flags with final bit for example
   - Checksum
-  - Frame Id
+  - FrameID
   - (Next Header)
 
 - Ack Header
-  - Frame Id
+  - FrameID
   - Acknowledged cumulative range
   - Window Size for flow control
   - (Next Header)
 
 - Error Header
-  - Frame Id
-  - Error code
-  - Error message
+  - FrameID
+  - ErrorCode
+  - ErrorMessage
 
 - Command Header
-  - Command opcode
+  - CommandType
   - Parameters
-  - Frame Id
-  - Next Header
+  - FrameID
+  - NextHeader
 
-## Commands
-- Read
-- Write
-- List
-- Move
-- Remove
-- Mkdir
-- Rmdir
-- Close
+CommandType values:
+
+0. // ?
+1. Read
+2. Write
+3. List
+4. Move
+5. Remove
+6. MkDir
+7. RmDir
+8. Close
