@@ -51,34 +51,39 @@ MessageType values:
 6. Command
 
 ## Headers
-- Connection Header
+- Packet Header
+  - Version
   - ConnectionID // 0: client hello, server sends back connection id
-  - Next Header
+  - FrameNumber
+  - Frames (one or many frame headers + payload)
+  - PacketChecksum
 
+### Frame Headers
 - Data Header
+  - Type
+  - FrameID
   - Offset
   - Length
   - Flags with final bit for example
   - Checksum
-  - FrameID
-  - (Next Header)
 
 - Ack Header
+  - Type
   - FrameID
   - Acknowledged cumulative range
   - Window Size for flow control
-  - (Next Header)
 
 - Error Header
+  - Type
   - FrameID
   - ErrorCode
   - ErrorMessage
 
 - Command Header
+  - Type
+  - FrameID
   - CommandType
   - Parameters
-  - FrameID
-  - NextHeader
 
 CommandType values:
 
