@@ -79,11 +79,12 @@ MessageType values:
 CommandType values:
 
 0. // ?
-1. Read
-2. Write
-3. List
-4. Move
-5. Remove
-6. MkDir
-7. RmDir
-8. Close
+1. Stat
+2. Read
+3. Write
+4. List
+5. Move
+6. Remove
+7. MkDir
+8. RmDir
+9. Close
