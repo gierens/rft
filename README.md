@@ -98,4 +98,5 @@ CommandType values:
 6. Remove
 7. MkDir
 8. RmDir
-9. Close (shouldn't this be a separate frame maybe)
+9. Checksum
+10. Close (shouldn't this be a separate frame maybe)
