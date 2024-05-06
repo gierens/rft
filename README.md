@@ -71,7 +71,9 @@ MessageType values:
   - Type
   - FrameID
   - Acknowledged cumulative range
+    (we can probably omit this and use the frame IDs instead)
   - Window Size for flow control
+    (maybe we should put this into a separate frame like QUIC)
 
 - Error Header
   - Type
@@ -96,4 +98,4 @@ CommandType values:
 6. Remove
 7. MkDir
 8. RmDir
-9. Close
+9. Close (shouldn't this be a separate frame maybe)
