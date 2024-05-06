@@ -20,6 +20,10 @@ Questions:
 - can we move the FrameID into the general MessageType? Is it used by every packet?
 - do we (not) need a general message format?
 
+Answer to both: no, the idea is that a single packet can hold multiple frames,
+so the top-level-header just contains the connection ID and maybe the overall
+length. After that follow possibly multiple and possibly different frames.
+
 # Message Formats
 
 ## General Message Format
