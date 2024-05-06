@@ -26,7 +26,7 @@ Questions:
 We need a general message format for all messages. Compare with
 - Common Header defintions: https://grnvs.net.in.tum.de/cheatsheet.pdf
 - SSH File Transfer Protocol: https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-13#section-4
-- SHH File Transfer Protocol Packet Types: https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-13#section-4.3
+- SSH File Transfer Protocol Packet Types: https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-13#section-4.3
 
 ```
 Message {
