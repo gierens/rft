@@ -1,9 +1,42 @@
-<mxfile host="app.diagrams.net" modified="2024-05-07T11:37:39.383Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" version="24.3.1" etag="rgAH_xDQMtVONLSx25Mo" type="github">
+<mxfile host="app.diagrams.net" modified="2024-05-07T14:13:56.277Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" etag="PCJzfdTNlh6KcVcYUBDM" version="24.3.1" type="github">
   <diagram name="Page-1" id="4yG-GDEzLWlXpBZ6M8Au">
-    <mxGraphModel>
+    <mxGraphModel dx="1026" dy="653" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
+        <mxCell id="WFqHVdjfjFdFmk0O2PWR-1" value="UDP Packet" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="30" y="360" width="800" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="WFqHVdjfjFdFmk0O2PWR-3" value="RFT Packet" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="80" y="320" width="750" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="WFqHVdjfjFdFmk0O2PWR-4" value="Version" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="80" y="260" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="WFqHVdjfjFdFmk0O2PWR-5" value="Conn&lt;div&gt;ID&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="120" y="260" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="WFqHVdjfjFdFmk0O2PWR-6" value="&lt;div&gt;&lt;span style=&quot;background-color: initial;&quot;&gt;#&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;color: rgba(0, 0, 0, 0); font-family: monospace; font-size: 0px; text-align: start; text-wrap: nowrap; background-color: initial;&quot;&gt;%3CmxGraphModel%3E%3Croot%3E%3CmxCell%20id%3D%220%22%2F%3E%3CmxCell%20id%3D%221%22%20parent%3D%220%22%2F%3E%3CmxCell%20id%3D%222%22%20value%3D%22Conn%26lt%3Bdiv%26gt%3BID%26lt%3B%2Fdiv%26gt%3B%22%20style%3D%22rounded%3D0%3BwhiteSpace%3Dwrap%3Bhtml%3D1%3B%22%20vertex%3D%221%22%20parent%3D%221%22%3E%3CmxGeometry%20x%3D%22120%22%20y%3D%22280%22%20width%3D%2240%22%20height%3D%2240%22%20as%3D%22geometry%22%2F%3E%3C%2FmxCell%3E%3C%2Froot%3E%3C%2FmxGraphModel%3E&lt;/span&gt;&lt;span style=&quot;background-color: initial;&quot;&gt;of&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;background-color: initial;&quot;&gt;Frames&lt;/span&gt;&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="160" y="260" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="WFqHVdjfjFdFmk0O2PWR-7" value="&lt;div&gt;&lt;span style=&quot;background-color: initial;&quot;&gt;MAC&lt;/span&gt;&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="200" y="260" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="WFqHVdjfjFdFmk0O2PWR-8" value="Payload" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="240" y="260" width="590" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="WFqHVdjfjFdFmk0O2PWR-9" value="Header" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="80" y="300" width="160" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="WFqHVdjfjFdFmk0O2PWR-10" value="Data Frame" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="240" y="220" width="470" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="WFqHVdjfjFdFmk0O2PWR-11" value="Window&lt;div&gt;Frame&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="710" y="220" width="60" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="WFqHVdjfjFdFmk0O2PWR-12" value="ACK&lt;div&gt;Frame&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="770" y="220" width="60" height="40" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
