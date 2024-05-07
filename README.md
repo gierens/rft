@@ -51,45 +51,72 @@ MessageType values:
 6. Command
 
 ## Headers
-- Packet Header
-  - Version
-  - ConnectionID // 0: client hello, server sends back connection id
-  - FrameNumber
-  - Frames (one or many frame headers + payload)
-  - PacketChecksum
+```
+PacketHeader (64) {
+  U4 Version
+  U32 ConnectionID // 0: client hello, server responds with connection id
+  U8 NumberOfFrames
+  U20 Checksum
+  ..Frames // zero or multiple frames + payload
+}
+```
 
 ### Frame Headers
-- Data Header
-  - Type
-  - FrameID
-  - Offset
-  - Length
-  - Flags with final bit for example
-  - Checksum
+```
+DataFrame (104) {
+  U8 Type
+  U32 FrameID
+  U32 Offset
+  U32 Length // same as SSH FTP
+  (U Flags with final bit for example)
+}
+```
+This gives us a max file size we can send of: offset * 512 bits = 2^32 * 2^9 = 2^41 bits.
 
-- Ack Header
-  - Type
-  - FrameID
-  - Acknowledged cumulative range
-    (we can probably omit this and use the frame IDs instead)
-  - Window Size for flow control
-    (maybe we should put this into a separate frame like QUIC)
+```
+AckFrame (40) {
+  U8 Type
+  U32 FrameID
+}
+```
+```
+FlowFrame (24) {
+  U8 Type
+  U16 WindowSize
+  U8 RESERVED
+}
+```
 
-- Error Header
-  - Type
-  - FrameID
-  - ErrorCode
-  - ErrorMessage
+```
+ErrorFrame (48 + len(ErrorMessage)) {
+  U8 Type
+  U32 FrameID
+  U8 ErrorCode
+  string ErrorMessage
+}
+```
 
-- Command Header
-  - Type
-  - FrameID
-  - CommandType
-  - Parameters
+```
+CommandFrame (48) {
+  U8 Type
+  U32 FrameID
+  U8 CommandType
+  ..CommandPayload
+}
+```
+
+FrameType values:
+
+0. // RESERVED
+1. Data
+2. Ack
+3. Flow
+4. Error
+5. Command
 
 CommandType values:
 
-0. // ?
+0. // RESERVED
 1. Stat
 2. Read
 3. Write
