@@ -134,8 +134,19 @@ a file transfer.
 This document defines `U4`, `U8`, `U16`, `U32`, `U64` as unsigned 4-, 8-, 16-, 32-, or 64-bit integers.
 A `string` is a UTF-8 {{RFC3629}} encoded zero-terminated string.
 
-Messages are represented in a C-style notation. They may be annotated by C-style comments.
+Messages are represented in a C struct-like notation. They may be annotated by C-style comments.
 All members are laid out continuously on wire, any padding will be made explicit.
+Constant values are assigned with a "=".
+
+~~~~
+StructName1 {
+    TypeName1     FieldName1,
+    TypeName2     FieldName2,
+    TypeName3[4]  FieldName3,
+    String        FieldName4,
+    StructName2   FieldName5,
+}
+~~~~
 
 # Body [REPLACE]
 
