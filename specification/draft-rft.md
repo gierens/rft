@@ -137,7 +137,8 @@ StructName1 {
 
 The only scalar types are integer denoted with "U" for unsigned and "I" for
 signed integers. Strings are a composite type consisting of the size as "U16"
-followed by ASCII-characters.
+followed by ASCII-characters. Padding is made explicit via the field name
+"Padding" and constant values are assigned with a "=".
 
 # Body [REPLACE]
 
