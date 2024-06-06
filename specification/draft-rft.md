@@ -302,7 +302,40 @@ Client                                                       Server
 
 ## Reliability
 
+The protocol achieves realiability by acknowledgements and checksumming.
+
+### Frame ID
+
+Most frame types carry a frame ID. This is basically the count of frames
+the endpoint sending the frame has sent so far, so it starts at 1 and
+is incremented by 1 for each frame sent. A wrap around occurs when the
+maximum value is reached.
+
 ### Acknowledgement
+
+Frames are cumulatively acknowledged by the receiver. The receiver sends
+an AckFrame with the frame ID of the last frame it received. The sender
+then knows that all frames up to this frame ID have been received.
+
+~~~~ LANGUAGE-REPLACE/DELETE
+Client                                                       Server
+   |                                                           |
+   |<-------[CID:3, FN:1][DATA, FID:13, OFF:0, LEN:1000]-------|
+   |<-----[CID:3, FN:1][DATA, FID:14, OFF:1000, LEN:1000]------|
+   |<-----[CID:3, FN:1][DATA, FID:15, OFF:2000, LEN:1000]------|
+   |                                                           |
+   |----------------[CID:3, FN:0][ACK, FID:15]---------------->|
+   |                                                           |
+   v                                                           v
+~~~~
+{: title='Sequence diagram of frame cumulative acknowledgement' }
+
+### Retransmission
+
+If the sender does not receive an AckFrame for a frame it sent within a
+timeout 5 seconds it retransmits the frame. If the receiver misses a previous
+frame it sends a duplicate AckFrame for the previous frame ID to signal the
+sender to do a fast retransmission.
 
 ### Checksumming
 
@@ -315,6 +348,10 @@ Client                                                       Server
 ## Congestion Control
 
 ## Multiple Transfers
+
+## Timeout
+
+# File Transfer
 
 # Body [REPLACE]
 
