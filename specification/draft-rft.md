@@ -247,7 +247,7 @@ response to that connection ID:
 ~~~
 Client                                                       Server
    |                                                           |
-   |--------[CID:0, FN:1][CHCID, FID:1, OLD:0, NEW:3]--------->|
+   |--------[CID:0, FN:2][CHCID, FID:1, OLD:0, NEW:3]--------->|
    |                                                           |
    |<----------------[CID:3, FN:0][ACK, FID:1]-----------------|
    |                                                           |
@@ -263,9 +263,9 @@ Client                                                       Server
    |                                                           |
    |--------[CID:0, FN:1][CHCID, FID:1, OLD:0, NEW:3]--------->|
    |                                                           |
-   |<--[CID:3, FN:1][ACK, FID:1][CHCID, FID:1, OLD:3, NEW:9]---|
+   |<--[CID:3, FN:2][ACK, FID:1][CHCID, FID:1, OLD:3, NEW:9]---|
    |                                                           |
-   |-----------------[CID:9, FN:0][ACK, FID:1]-----------------|
+   |-----------------[CID:9, FN:0][ACK, FID:1]---------------->|
    |                                                           |
    v                                                           v
 ~~~
@@ -283,19 +283,29 @@ If the client wishes to close the connection it simply sends a ExitCommand.
 Then the AckFrame for this command is the last one the server sends for this
 connection.
 
-TODO sequence diagram of this
+~~~
+Client                                                       Server
+   |                                                           |
+   |------------[CID:5, FN:1][CMD, FID:1234, EXIT]------------>|
+   |                                                           |
+   |<--------------[CID:5, FN:1][ACK, FID:1234]----------------|
+   |                                                           |
+   v                                                           v
+~~~
+
+## Reliability
+
+### Acknowledgement
+
+### Checksumming
 
 ## Recovery
 
 ## Migration
 
-## Reliability
-
 ## Flow Control
 
 ## Congestion Control
-
-## Checksumming
 
 ## Multiple Transfers
 
@@ -444,7 +454,7 @@ ConnectionIDChangeFrame {
 
 ### Command Frames
 
-~~~~ language-REPLACE/DELETE
+~~~~ language-REPLACE/DELET
 CommandFrame {
   U8  Type
   U32 FrameID
