@@ -184,12 +184,13 @@ ID (CID) uniquely identifying the connection on both ends, a frame number
 (FN) counting the number of frames send in the payload, and a
 cyclic-redundancy-check (CRC) checksum to validate the packet integrity.
 
-After the header follows the payload which holds one or more RFT frames.
-These serve both for data transfer as well as any additional logic besides
-version matching, connection identification, and packet integrity validation.
-The most important types are AckFrames for acknowledging frames based on
-their frame ID (FID), CommandFrames to issue commands on the server,
-and DataFrames to transport data for the commands to read or write a file.
+After the header follows the payload which holds one or more RFT frames
+inspired by {{RFC9000}}. These serve both for data transfer as well as any
+additional logic besides version matching, connection identification, and
+packet integrity validation. The most important types are AckFrames for
+acknowledging frames based on their frame ID (FID), CommandFrames to issue
+commands on the server, and DataFrames to transport data for the commands to
+read or write a file.
 
 The next section provides detailed information about connection-related
 topics, e.g. establishment, reliability, congestion control and more.
