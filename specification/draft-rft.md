@@ -1,47 +1,57 @@
 ---
-stand_alone: true
+title: Robust File Transfer based on Simplified QUIC for File System Access
+abbrev: RFT
+docname: draft-rft
+date: 2024-06-01
+lang: en
+
 ipr: trust200902
 cat: info # Check
 submissiontype: IETF
-area: General [REPLACE]
-wg: Internet Engineering Task Force
+area: Applications
+wg: TUM Protocol Design
+kw: Internet-Draft
+#stand_alone: true
+#ipr: trust200902
+#cat: info # Check
+#submissiontype: IETF
+#area: General [REPLACE]
+#wg: Internet Engineering Task Force
 
-docname: draft-rfcxml-general-template-standard-00
-obsoletes: 4711, 4712 # Remove if not needed/Replace
-updates: 4710 # Remove if not needed/Replace
 
-title: Title [REPLACE]
-abbrev: Abbreviated Title [REPLACE]
-lang: en
-kw:
-  - keyword1
-  - keyword2
+#obsoletes: 4711, 4712 # Remove if not needed/Replace
+#updates: 4710 # Remove if not needed/Replace
+
+
 # date: 2022-02-02 -- date is filled in automatically by xml2rfc if not given
 author:
 - role: editor # remove if not true
-  ins: I. J-P. Surname [REPLACE]
-  name: fullname [REPLACE]
-  org: Organization [REPLACE/DELETE]
-  street: Street [REPLACE/DELETE]
-  city: City [REPLACE/DELETE]
-  region: Region [REPLACE/DELETE] # not always available
-  code: Postal code [REPLACE/DELETE]
+  ins: N. Stangl
+  name: Niklas Stangl
+  org: Technical University of Munich
+  street: Boltzmannstraße 3
+  city: Garching
+  code: 85748
   country: DE # use TLD (except UK) or country name
-  phone: Phone [REPLACE/DELETE]
-  email: Email [REPLACE/DELETE]
-  uri: URI [REPLACE/DELETE]
-contributor: # Same structure as author list, but goes into contributors
-- name: Carsten Bormann
-  org: Universität Bremen TZI
-  email: cabo@tzi.org
-  uri: https://rfc.space
-- name: Jay Daley
-  org: IETF Administration LLC
-  email: exec-director@ietf.org
-  contribution: |
-    Jay provided the **XML** version of the template.
-
-    That was quite helpful.
+  email: niklas.stangl@tum.de
+- role: editor # remove if not true
+  ins: J. Pfannschmidt
+  name: Johannes Pfannschmidt
+  org: Technical University of Munich
+  street: Boltzmannstraße 3
+  city: Garching
+  code: 85748
+  country: DE # use TLD (except UK) or country name
+  email: johannes.pfannschmidt@cs.tum.edu
+- role: editor # remove if not true
+  ins: S. Gierens
+  name: Sandro-Alessio Gierens
+  org: Technical University of Munich
+  street: Boltzmannstraße 3
+  city: Garching
+  code: 85748
+  country: DE # use TLD (except UK) or country name
+  email: sandro.gierens@tum.de
 
 normative:
   RFC5234: # REPLACE
