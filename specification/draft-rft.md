@@ -56,6 +56,7 @@ author:
 normative:
   RFC0768: #UDP
   RFC9000: #QUIC
+  RFC3629: #UTF-8 strings
   RFC5234: #TODO: remove me later
 informative:
   exampleRefMin:
@@ -85,14 +86,27 @@ RFT ist based on UDP datagram transports
 
 The Protocol Design WG is tasked with standardizing an Application Protocol for a robust file transfer protocol, RFT.
 This protocol is intended to provide point-to-point operation between a client and a server built upon UDP {{RFC0768}}.
-It supports connection migration based on connection IDs, in spirit similar to QUIC {{RFC9000}}, albeit a bit easier.
+It supports connection migration based on connection IDs, in spirit similar to QUIC {{RFC9000}}, although a bit easier.
 
 RFT is based on UDP, connection-oriented and stateful.
-A point-to-point connection supports 
+A point-to-point connection supports IP address migration, flow control, congestion control and allows to transfers of a specific length and offset, which can be useful to resume interrupted transfers or partial transfers.
+The protocol guarantees in-order delivery for all packets belonging to a stream.
+There is no such guarantee for messages belonging to different streams.
+
+RFT *messages* always consist of a single *Packet Header* and zero or multiple *Frames* appended continously on the wire after the packet header without padding.
+Frames are either *data frames*, *error frames* or various types of control frames used for the connection initialization and negotiation, flow control, congestion control, acknowledgement or handling of commands.
 
 ## Requirements Language
 
 {::boilerplate bcp14-tagged}
+
+## Notation
+
+This document defines `U8`, `U16`, `U32`, `U64` as unsigned 8-, 16-, 32-, or 64-bit integers.
+A `string` is a UTF-8 {{RFC3629}} encoded zero-terminated string.
+
+Messages are represented in a C-style notation. They may be annotated by C-style comments.
+All members are laid out continuously on wire, any padding will be made explicit.
 
 # Body [REPLACE]
 
@@ -127,12 +141,6 @@ Second term:
 source code goes here [REPLACE]
 ~~~~
 {: title='Source [REPLACE]' sourcecode-markers="true"}
-
-
-# IANA Considerations {#IANA}
-
-This memo includes no request to IANA. [CHECK]
-
 
 # Security Considerations {#Security}
 
