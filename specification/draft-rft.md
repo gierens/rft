@@ -138,7 +138,7 @@ Messages are represented in a C struct-like notation. They may be annotated by C
 All members are laid out continuously on wire, any padding will be made explicit.
 Constant values are assigned with a "=".
 
-~~~
+~~~~ LANGUAGE-REPLACE/DELETE
 StructName1 (Length) {
     TypeName1     FieldName1,
     TypeName2     FieldName2,
@@ -146,7 +146,8 @@ StructName1 (Length) {
     String        FieldName4,
     StructName2   FieldName5,
 }
-~~~
+~~~~
+{: title='Message format notation' }
 
 The only scalar types are integer denoted with "U" for unsigned and "I" for
 signed integers. Strings are a composite type consisting of the size as "U16"
@@ -155,13 +156,14 @@ followed by ASCII-characters. Padding is made explicit via the field name
 
 To visualize protocol runs we use the following sequence diagram notation:
 
-~~~
+~~~~ LANGUAGE-REPLACE/DELETE
 Client                                                       Server
    |                                                           |
    |-------[CID:1337, FN:2][ACK, FID:3][FLOW, SIZE:1000]------>|
    |                                                           |
    v                                                           v
-~~~
+~~~~
+{: title='Sequence diagram notation' }
 
 The individual parts of the packets are enclosed by brackets and only the
 relevant values are shown. First we always have the RFT packet header,
@@ -178,19 +180,20 @@ The RFT protocol is a simple layer 7 protocol for Robust File Transfer.
 It sits on-top of layer 4 with a single RFT packet send as a UDP SDU.
 The packet structure is shown in the following figure:
 
-~~~
-                       +-----------+----------------------------------+
-                       | ACK Frame |       Data Frame       |   ...   |
-+----------------------+-----------+----------------------------------+
-| VER | CID | FN | CRC |                                              |
-+----------------------+       Payload (zero or multiple frames)      |
-|        Header        |                                              |
-+----------------------+----------------------------------------------+
-|                               RFT Packet                            |
-+---------------------------------------------------------------------+
-|                                UDP SDU                              |
-+---------------------------------------------------------------------+
-~~~
+~~~~ LANGUAGE-REPLACE/DELETE
+                       +-----------+--------------------------------+
+                       | ACK Frame |       Data Frame       |  ...  |
++----------------------+-----------+--------------------------------+
+| VER | CID | FN | CRC |                                            |
++----------------------+      Payload (zero or multiple frames)     |
+|        Header        |                                            |
++----------------------+--------------------------------------------+
+|                               RFT Packet                          |
++-------------------------------------------------------------------+
+|                                UDP SDU                            |
++-------------------------------------------------------------------+
+~~~~
+{: title='General packet structure' }
 
 The header contains a version field (VER) for evolvability, as connection
 ID (CID) uniquely identifying the connection on both ends, a frame number
@@ -226,7 +229,7 @@ the UDP packet having reversed IP addresses and ports, containing an RFT
 packet with the connection ID chosen by the server. The server knows all
 IDs of established connections and must make the new one is unique.
 
-~~~
+~~~~ LANGUAGE-REPLACE/DELETE
 Client                                                       Server
    |                                                           |
    |----------------------[CID:0, FN:0]----------------------->|
@@ -234,7 +237,8 @@ Client                                                       Server
    |<---------------------[CID:1, FN:0]------------------------|
    |                                                           |
    v                                                           v
-~~~
+~~~~
+{: title='Sequence diagram of simple connection establishment' }
 
 ### Connection ID Negotiation
 
@@ -244,7 +248,7 @@ a single port it can attach a ConnectionIdChangeFrame with a proposed
 connection ID for the new one (NEW) and 0 for the old one (OLD). The server
 acknowledges this and sends back the handshake response to that connection ID:
 
-~~~
+~~~~ LANGUAGE-REPLACE/DELETE
 Client                                                       Server
    |                                                           |
    |--------[CID:0, FN:2][CHCID, FID:1, OLD:0, NEW:3]--------->|
@@ -252,13 +256,14 @@ Client                                                       Server
    |<----------------[CID:3, FN:0][ACK, FID:1]-----------------|
    |                                                           |
    v                                                           v
-~~~
+~~~~
+{: title='Sequence diagram of successful connection ID proposal' }
 
 In case the proposal is already used for another connection
 attaches another ConnectionIdChangeFrame (CHCID) with the new unique connection
 ID chosen by the server.
 
-~~~
+~~~~ LANGUAGE-REPLACE/DELETE
 Client                                                       Server
    |                                                           |
    |--------[CID:0, FN:1][CHCID, FID:1, OLD:0, NEW:3]--------->|
@@ -268,7 +273,8 @@ Client                                                       Server
    |-----------------[CID:9, FN:0][ACK, FID:1]---------------->|
    |                                                           |
    v                                                           v
-~~~
+~~~~
+{: title='Sequence diagram of unsuccessful connection ID proposal' }
 
 ### Version Interoperability
 
@@ -283,7 +289,7 @@ If the client wishes to close the connection it simply sends a ExitCommand.
 Then the AckFrame for this command is the last one the server sends for this
 connection.
 
-~~~
+~~~~ LANGUAGE-REPLACE/DELETE
 Client                                                       Server
    |                                                           |
    |------------[CID:5, FN:1][CMD, FID:1234, EXIT]------------>|
@@ -291,7 +297,8 @@ Client                                                       Server
    |<--------------[CID:5, FN:1][ACK, FID:1234]----------------|
    |                                                           |
    v                                                           v
-~~~
+~~~~
+{: title='General packet structure' }
 
 ## Reliability
 
