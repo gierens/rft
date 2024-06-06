@@ -94,6 +94,34 @@ A point-to-point connection supports
 
 {::boilerplate bcp14-tagged}
 
+## Terms
+
+The following terms are used throughout this document:
+
+Client:
+: The endpoint of a connection that initiated it and issues commands over it.
+
+Server:
+: The endpoint of a connection that listens for and accepts connections
+from clients and answers their commands.
+
+Connection:
+: A communication channel between a client and server identified by a
+single connection ID unique on both ends.
+
+Packet:
+: An RFT datagram send as UDP SDU over a connection containing zero or multiple
+frames.
+
+Frame:
+: A typed and sized information unit making up (possible with others) the
+payload of an RFT packet.
+
+Command:
+: A typed request initiated by the client to the server, e.g. to initiate
+a file transfer.
+
+
 # Body [REPLACE]
 
 Some body text [REPLACE]
