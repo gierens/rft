@@ -96,9 +96,36 @@ There is no such guarantee for messages belonging to different streams.
 RFT *messages* always consist of a single *Packet Header* and zero or multiple *Frames* appended continously on the wire after the packet header without padding.
 Frames are either *data frames*, *error frames* or various types of control frames used for the connection initialization and negotiation, flow control, congestion control, acknowledgement or handling of commands.
 
-## Requirements Language
+## Keywords
 
 {::boilerplate bcp14-tagged}
+
+## Terms
+
+The following terms are used throughout this document:
+
+Client:
+: The endpoint of a connection that initiated it and issues commands over it.
+
+Server:
+: The endpoint of a connection that listens for and accepts connections
+from clients and answers their commands.
+
+Connection:
+: A communication channel between a client and server identified by a
+single connection ID unique on both ends.
+
+Packet:
+: An RFT datagram send as UDP SDU over a connection containing zero or multiple
+frames.
+
+Frame:
+: A typed and sized information unit making up (possible with others) the
+payload of an RFT packet.
+
+Command:
+: A typed request initiated by the client to the server, e.g. to initiate
+a file transfer.
 
 ## Notation
 
