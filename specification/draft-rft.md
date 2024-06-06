@@ -121,6 +121,23 @@ Command:
 : A typed request initiated by the client to the server, e.g. to initiate
 a file transfer.
 
+## Notation
+
+The message formats are defined in a struct-like notation.
+
+~~~~
+StructName1 {
+    TypeName1     FieldName1,
+    TypeName2     FieldName2,
+    TypeName3[4]  FieldName3,
+    String        FieldName4,
+    StructName2   FieldName5,
+}
+~~~~
+
+The only scalar types are integer denoted with "U" for unsigned and "I" for
+signed integers. Strings are a composite type consisting of the size as "U16"
+followed by ASCII-characters.
 
 # Body [REPLACE]
 
