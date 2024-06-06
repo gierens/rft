@@ -54,7 +54,9 @@ author:
   email: sandro.gierens@tum.de
 
 normative:
-  RFC5234: # REPLACE
+  RFC0768: #UDP
+  RFC9000: #QUIC
+  RFC5234: #TODO: remove me later
 informative:
   exampleRefMin:
     title: Title [REPLACE]
@@ -74,13 +76,19 @@ informative:
 
 --- abstract
 
-Abstract [REPLACE]
+Robust File Transfer (RFT) is a file-transfer protocol on top of UDP.
+RFT ist based on UDP datagram transports
 
 --- middle
 
 # Introduction
 
-Introductory text [REPLACE]
+The Protocol Design WG is tasked with standardizing an Application Protocol for a robust file transfer protocol, RFT.
+This protocol is intended to provide point-to-point operation between a client and a server built upon UDP {{RFC0768}}.
+It supports connection migration based on connection IDs, in spirit similar to QUIC {{RFC9000}}, albeit a bit easier.
+
+RFT is based on UDP, connection-oriented and stateful.
+A point-to-point connection supports 
 
 ## Requirements Language
 
