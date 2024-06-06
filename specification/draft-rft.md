@@ -125,15 +125,15 @@ a file transfer.
 
 The message formats are defined in a struct-like notation.
 
-~~~~
-StructName1 {
+~~~
+StructName1 (Length) {
     TypeName1     FieldName1,
     TypeName2     FieldName2,
     TypeName3[4]  FieldName3,
     String        FieldName4,
     StructName2   FieldName5,
 }
-~~~~
+~~~
 
 The only scalar types are integer denoted with "U" for unsigned and "I" for
 signed integers. Strings are a composite type consisting of the size as "U16"
@@ -152,7 +152,7 @@ The packet structure is shown in the following figure:
 
 ~~~
                        +-----------+----------------------------------+
-                       | ACK Frame |            Data Frame            |
+                       | ACK Frame |       Data Frame       |   ...   |
 +----------------------+-----------+----------------------------------+
 | VER | CID | FN | CRC |                                              |
 +----------------------+       Payload (zero or multiple frames)      |
@@ -169,7 +169,12 @@ ID (CID) uniquely identifying the connection on both ends, a frame number
 (FN) counting the number of frames send in the payload, and a
 cyclic-redundancy-check (CRC) checksum to validate the packet integrity.
 
-TODO
+After the header follows the payload which holds one or more RFT frames.
+These serve both for data transfer as well as any additional logic besides
+version matching, connection identification, and packet integrity validation.
+The most important types are ACK frames for acknowledging frames based on
+their frame ID (FID), command frames to issue commands on the server,
+and data frames to transport data for the commands to read or write a file.
 
 The next section provides detailed information about connection-related
 topics, e.g. establishment, reliability, congestion control and more.
@@ -179,7 +184,7 @@ and lists all the different frame and command types.
 # Connection
 
 The protocol is connection-based. Connections are identified a singular
-connection ID unique on both sides.
+connection ID (CID) unique on both sides.
 
 ## Establishment
 
