@@ -58,28 +58,12 @@ normative:
   RFC9000: #QUIC
   RFC3629: #UTF-8 strings
   RFC3385: #CRC32
-  RFC5234: #TODO: remove me later
-informative:
-  exampleRefMin:
-    title: Title [REPLACE]
-    author:
-    - name: Givenname Surname[REPLACE]
-      org: (ignored here anyway)
-    - name: Givenname Surname1 Surname2
-      surname: Surname1 Surname2 # needed for Spanish names etc.
-      org: (ignored here anyway)
-    date: 2006
-  exampleRefOrg:
-    target: http://www.example.com/
-    title: Title [REPLACE]
-    author:
-    - org: Organization [REPLACE]
-    date: 1984-04
 
 --- abstract
 
 Robust File Transfer (RFT) is a file-transfer protocol on top of UDP.
-RFT ist based on UDP datagram transports
+It is connection-oriented and stateful, supporting connection migration based on connection IDs similar to QUIC.
+RFT provides point-to-point operation between a client and a server, enabling IP address migration, flow control, congestion control, and partial or resumed file transfers using offsets and lengths.
 
 --- middle
 
@@ -218,7 +202,7 @@ and lists all the different frame and command types.
 The protocol is connection-based. Connections are identified a singular
 connection ID (CID) unique on both sides.
 
-## Establishment
+## Establishment {#establishment}
 
 The connection establishment is and via a two-way handshake and is initiated by
 the client by sending a packet with connection ID 0. The server responds with
@@ -228,7 +212,7 @@ IDs of established connections and must make the new one is unique.
 
 TODO sequence diagram of this
 
-### Connection ID Negotiation
+### Connection ID Negotiation {#connection-id-negotiation}
 
 This simple connection establishment is limited to a single handshake
 at a time per UDP source port. If the client wishes to establish multiple over
@@ -269,40 +253,6 @@ TODO sequence diagram of this
 
 ## Multiple Transfers
 
-# Body [REPLACE]
-
-Some body text [REPLACE]
-
-This document normatively references {{RFC5234}} and has more
-information in {{exampleRefMin}} and {{exampleRefOrg}}. [REPLACE]
-
-1. Ordered list item [REPLACE/DELETE]
-2. Ordered list item [REPLACE/DELETE]
-
-* Bulleted list item [REPLACE/DELETE]
-* Bulleted list item [REPLACE/DELETE]
-
-
-{:vspace}
-First term:
-: Definition of the first term
-
-Second term:
-: Definition of the second term
-<!-- Omit the leading {:vspace} for a compact definition list,
-     i.e., to start definitions on same line as the term -->
-
-
-| Table head 1 [REPLACE] | Table head2 [REPLACE] |
-| Cell 11 [REPLACE]      | Cell 12 [REPLACE]     |
-| Cell 21 [REPLACE]      | Cell 22 [REPLACE]     |
-{: title="A nice table [REPLACE]"}
-
-~~~~ language-REPLACE/DELETE
-source code goes here [REPLACE]
-~~~~
-{: title='Source [REPLACE]' sourcecode-markers="true"}
-
 # Message Formats
 
 RFT has two types of message definitions: `Packet Header` and `Frame`s.
@@ -315,7 +265,7 @@ The zero or multiple frames following the packer header MUST be appendend after 
 The packet header is always the first part of a message.
 
 * The `Version` field MUST contain the version of the protocol that is being used.
-* The `ConnectionID` MUST be set to
+* The `ConnectionID` MUST be set to the connection ID in accordance to the connection ID negotiation upon connection establishment as described in [Connection ID Migration](#connection-id-negotiation).
 * The `NumberOfFrames` field MUST be set to the number of frames that are appended after this packet header and belong to it.
 * The `Checksum` field contains 20-bit of the CRC-32 hash {{RFC3385}} of the entire message, inlcuding the packet header and all of its appended frames and thei potential payload. It MUST take the first 20-bit of the 32-bit hash.
 
@@ -328,12 +278,12 @@ PacketHeader {
   // Zero or more appended frames
 }
 ~~~~
-{: title='Mandatory fields of a Packet Header.' sourcecode-markers="true"}
+{: title='Mandatory fields of a Packet Header.'}
 
 ## Message Frames
 
 Multiple different frames exist.
-All frames MUST start with a `U8` defining the frame type.
+All frames MUST start with a `U8` defining the frame type and might be followed by further fields depending on the frame.
 
 | Frame Type Value | Frame Type                 |
 | 0                | Currently reserved         |
@@ -349,117 +299,130 @@ All frames MUST start with a `U8` defining the frame type.
 
 ### Data Frame
 
-The `DataFrame` frame contains the 
+The `DataFrame` frame specifies the `Offset` in bytes of the content in the file, as well as the `Length` in bytes of the data payload.
+The offset and length allow for resuming interrupter transfers, partial transfers, or parallel download via multiple connections.
 
 ~~~~ language-REPLACE/DELETE
 DataFrame {
-  U8  Type
+  U8  Type = 0x01
   U32 FrameID
   U48 Offset
   U48 Length
 }
 ~~~~
-{: title='Mandatory fields of a Data Frame.' sourcecode-markers="true"}
+{: title='Mandatory fields of a Data Frame.'}
 
 
 ### Acknowledgment Frame
 
 The `AckFrame` contains its frame type followed by the `FrameID` it is acknowledging.
+It SHOULD use cumulative acknowledgements.
 
 ~~~~ language-REPLACE/DELETE
 AckFrame {
-  U8  Type
+  U8  Type = 0x02
   U32 FrameID
 }
 ~~~~
-{: title='Mandatory fields of a Acknowledgment Frame.' sourcecode-markers="true"}
+{: title='Mandatory fields of a Acknowledgment Frame.'}
 
 ### Flow Frame
 
+The `FlowFrame` notifies its communication partner its available `WindowsSize` in bytes.
+The receiver sends the FlowFrame to the sender.
+A sender SHOULD take care to never exceed this limit.
+If the window remains zero for five consecutive messages, the sender MUST assume the the recevier has failed and terminate the stream.
+
 ~~~~ language-REPLACE/DELETE
 FlowFrame {
-  U8  Type
+  U8  Type = 0x03
   U16 WindowSize
   U8  RESERVED
 }
 ~~~~
-{: title='Mandatory fields of a Flow Frame.' sourcecode-markers="true"}
+{: title='Mandatory fields of a Flow Frame.'}
 
 ### Error Frame
 
 The `ErrorFrame` is used to signal an error in the transfer logic of an error that occured when executing a command specified by a `CommandFrame`.
-The `ErrorCode` defines the error code and the `ErrorMessage` an optional error message.
+The `ErrorCode` defines the error code and the `ErrorMessage` an optional error message, otherwise it SHOULD be empty ("").
 
 ~~~~ language-REPLACE/DELETE
 ErrorFrame {
-  U8  Type
+  U8  Type = 0x04
   U32 FrameID
   U8  ErrorCode
   Str ErrorMessage
 }
 ~~~~
-{: title='Mandatory fields of a Error Frame.' sourcecode-markers="true"}
+{: title='Mandatory fields of a Error Frame.'}
 
 ### Connection ID Change Frame
 
+This frame MUST only be used during the initial connection ID negotiation.
+As described in [Establishment](#establishment), this frame is only relevant when the client wishes to establish mutliple connections over a single port.
+It MUST attach a suggested ConnectionIDChangeFrame with a proposed connection ID.
+If that ID is already used, the server MUST respond with a new unique ID chosen by the server itself.
+
 ~~~~ language-REPLACE/DELETE
 ConnectionIDChangeFrame {
-  U8  Type
+  U8  Type = 0x05
   U32 FrameID
   U32 OldConnectionID
   U32 NewConnectionID
 }
 ~~~~
-{: title='Mandatory fields of a Connection ID Change Frame.' sourcecode-markers="true"}
+{: title='Mandatory fields of a Connection ID Change Frame.'}
 
 ### Command Frames
 
+The `CommandFrame` specifies the command sent by a client, based on the `CommandType`.
+
 ~~~~ language-REPLACE/DELETE
 CommandFrame {
-  U8  Type
+  U8  Type = 0x06
   U32 FrameID
   U8  CommandType
-  // ..CommandPayload
+  // might be followed by a command payload
 }
 ~~~~
-{: title='Mandatory fields of a Command Frame.' sourcecode-markers="true"}
+{: title='Mandatory fields of a Command Frame.'}
+
+The `AnswerFrame` is the response frame to a command, where the `CommandType` MUST be identical to the `CommandType` it is responding to.
 
 ~~~~ language-REPLACE/DELETE
 AnswerFrame {
-  U8  Type
+  U8  Type = 0x07
   U32 FrameID
   U8  CommandType
-  // ..AnswerPayload
+  // might be followed by a answer payload
 }
 ~~~~
-{: title='Mandatory fields of a Answer Frame.' sourcecode-markers="true"}
+{: title='Mandatory fields of a Answer Frame.'}
+
+| Command Type Value | Command Type       |
+| 0                  | Currently reserved |
+| 1                  | Read               |
+| 2                  | Write              |
+| 3                  | List               |
+| 4                  | Delete             |
+| 5                  | Stat               |
+| 6                  | Exit               |
+{: title="Command type definitions."}
+
+The `ReadCmdPayload` is used to initiate the transfer of a file from the server to the client, whereas the content is specified by the `Offset` and `Length` field, which MUST be in bytes.
+The `Path` is a string encoded path to the to be transferred file.
+The `Checksum` MUST be the CRC-32 checksum of the file to be transferred.
+The checksum value can be used to indicate if the content has changed, should the previous transcation be interrupted and the client is trying to resume the transfer at the specified offset.
 
 ~~~~ language-REPLACE/DELETE
 ReadCmdPayload {
   U48 Offset
   U48 Length
-  U32 Checksum //changed on server?
+  U32 Checksum
   Str Path
 }
 ~~~~
-{: title='Mandatory fields of a Read Command Payload Frame.' sourcecode-markers="true"}
-
-# Security Considerations {#Security}
-
-This document should not affect the security of the Internet. [CHECK]
-
+{: title='Mandatory fields of a Read Command Payload Frame.'}
 
 --- back
-
-# Appendix 1 [REPLACE/DELETE]
-
-This becomes an Appendix [REPLACE]
-
-
-# Acknowledgements {#Acknowledgements}
-{: numbered="false"}
-
-This template uses extracts from templates written by
-{{{Pekka Savola}}}, {{{Elwyn Davies}}} and
-{{{Henrik Levkowetz}}}. [REPLACE]
-
