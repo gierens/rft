@@ -57,6 +57,7 @@ normative:
   RFC0768: #UDP
   RFC9000: #QUIC
   RFC3629: #UTF-8 strings
+  RFC3385: #CRC32
   RFC5234: #TODO: remove me later
 informative:
   exampleRefMin:
@@ -104,6 +105,7 @@ Frames are either *data frames*, *error frames* or various types of control fram
 
 The following terms are used throughout this document:
 
+{:vspace}
 Client:
 : The endpoint of a connection that initiated it and issues commands over it.
 
@@ -129,7 +131,7 @@ a file transfer.
 
 ## Notation
 
-This document defines `U8`, `U16`, `U32`, `U64` as unsigned 8-, 16-, 32-, or 64-bit integers.
+This document defines `U4`, `U8`, `U16`, `U32`, `U64` as unsigned 4-, 8-, 16-, 32-, or 64-bit integers.
 A `string` is a UTF-8 {{RFC3629}} encoded zero-terminated string.
 
 Messages are represented in a C-style notation. They may be annotated by C-style comments.
@@ -168,6 +170,147 @@ Second term:
 source code goes here [REPLACE]
 ~~~~
 {: title='Source [REPLACE]' sourcecode-markers="true"}
+
+# Message Formats
+
+RFT has two types of message definitions: `Packet Header` and `Frame`s.
+Messages MUST have little-endian format.
+The packet header defines the top-level message, which MUST be transmitted first and defines the number of frames that follow the packet header.
+The zero or multiple frames following the packer header MUST be appendend after the packer header without padding on the wire.
+
+## Packet Header
+
+The packet header is always the first part of a message.
+
+* The `Version` field MUST contain the version of the protocol that is being used.
+* The `ConnectionID` MUST be set to
+* The `NumberOfFrames` field MUST be set to the number of frames that are appended after this packet header and belong to it.
+* The `Checksum` field contains 20-bit of the CRC-32 hash {{RFC3385}} of the entire message, inlcuding the packet header and all of its appended frames and thei potential payload. It MUST take the first 20-bit of the 32-bit hash.
+
+~~~~ language-REPLACE/DELETE
+PacketHeader {
+  U4  Version
+  U32 ConnectionID   // 0: client hello, server responds with connection id
+  U8  NumberOfFrames // zero or more frames + payload
+  U20 Checksum
+  // Zero or more appended frames
+}
+~~~~
+{: title='Mandatory fields of a Packet Header.' sourcecode-markers="true"}
+
+## Message Frames
+
+Multiple different frames exist.
+All frames MUST start with a `U8` defining the frame type.
+
+| Frame Type Value | Frame Type                 |
+| 0                | Currently reserved         |
+| 1                | Data Frame                 |
+| 2                | Acknowledgement Frame      |
+| 3                | Flow Frame                 |
+| 4                | Error Frame                |
+| 5                | Connection ID Change Frame |
+| 6                | Command Frame              |
+| 7                | Answer Frame               |
+| 8                | Read Command Payload Frame |
+{: title="Frame type definitions."}
+
+### Data Frame
+
+The `DataFrame` frame contains the 
+
+~~~~ language-REPLACE/DELETE
+DataFrame {
+  U8  Type
+  U32 FrameID
+  U48 Offset
+  U48 Length
+}
+~~~~
+{: title='Mandatory fields of a Data Frame.' sourcecode-markers="true"}
+
+
+### Acknowledgment Frame
+
+The `AckFrame` contains its frame type followed by the `FrameID` it is acknowledging.
+
+~~~~ language-REPLACE/DELETE
+AckFrame {
+  U8  Type
+  U32 FrameID
+}
+~~~~
+{: title='Mandatory fields of a Acknowledgment Frame.' sourcecode-markers="true"}
+
+### Flow Frame
+
+~~~~ language-REPLACE/DELETE
+FlowFrame {
+  U8  Type
+  U16 WindowSize
+  U8  RESERVED
+}
+~~~~
+{: title='Mandatory fields of a Flow Frame.' sourcecode-markers="true"}
+
+### Error Frame
+
+The `ErrorFrame` is used to signal an error in the transfer logic of an error that occured when executing a command specified by a `CommandFrame`.
+The `ErrorCode` defines the error code and the `ErrorMessage` an optional error message.
+
+~~~~ language-REPLACE/DELETE
+ErrorFrame {
+  U8  Type
+  U32 FrameID
+  U8  ErrorCode
+  Str ErrorMessage
+}
+~~~~
+{: title='Mandatory fields of a Error Frame.' sourcecode-markers="true"}
+
+### Connection ID Change Frame
+
+~~~~ language-REPLACE/DELETE
+ConnectionIDChangeFrame {
+  U8  Type
+  U32 FrameID
+  U32 OldConnectionID
+  U32 NewConnectionID
+}
+~~~~
+{: title='Mandatory fields of a Connection ID Change Frame.' sourcecode-markers="true"}
+
+### Command Frames
+
+~~~~ language-REPLACE/DELETE
+CommandFrame {
+  U8  Type
+  U32 FrameID
+  U8  CommandType
+  // ..CommandPayload
+}
+~~~~
+{: title='Mandatory fields of a Command Frame.' sourcecode-markers="true"}
+
+~~~~ language-REPLACE/DELETE
+AnswerFrame {
+  U8  Type
+  U32 FrameID
+  U8  CommandType
+  // ..AnswerPayload
+}
+~~~~
+{: title='Mandatory fields of a Answer Frame.' sourcecode-markers="true"}
+
+~~~~ language-REPLACE/DELETE
+ReadCmdPayload {
+  U48 Offset
+  U48 Length
+  U32 Checksum //changed on server?
+  Str Path
+}
+~~~~
+{: title='Mandatory fields of a Read Command Payload Frame.' sourcecode-markers="true"}
 
 # Security Considerations {#Security}
 
