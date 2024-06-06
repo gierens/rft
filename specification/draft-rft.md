@@ -337,19 +337,27 @@ hash of the entire packet. The receiver must validate this checksum upon
 receipt of a packet and discard it if if does not match and invoke a fast
 retransmission.
 
-## Recovery
-
 ## Migration
+
+A connection is uniquely identified on both ends by the connection ID. As
+soon as a peer receives a packet for this connection ID from a different
+IP-address port pair, it must change its internal mapping and send all
+subsequent packets to the new address. Any packets lost in the meantime
+are subjects to retransmission. If a peer has nothing to send, but wishes
+to explicitly inform the other end of a migration, the peer can simply
+send an empty packet (thus a packet without frames).
+
+## Recovery
 
 ## Flow Control
 
 ## Congestion Control
 
-## Multiple Transfers
-
 ## Timeout
 
 # File Transfer
+
+## Multiple Transfers
 
 # Message Formats
 
