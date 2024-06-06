@@ -140,6 +140,21 @@ signed integers. Strings are a composite type consisting of the size as "U16"
 followed by ASCII-characters. Padding is made explicit via the field name
 "Padding" and constant values are assigned with a "=".
 
+To visualize protocol runs we use the following sequence diagram notation:
+
+~~~
+Client                                                       Server
+   |                                                           |
+   |-------[CID:1337, FN:2][ACK, FID:3][FLOW, SIZE:1000]------>|
+   |                                                           |
+   v                                                           v
+~~~
+
+The individual parts of the packets are enclosed by brackets and only the
+relevant values are shown. First we always have the RFT packet header,
+followed by zero or multiple frames. See below for more details on the
+packet structure.
+
 # Overview
 
 This section gives a rough overview over the protocol and provides basic
