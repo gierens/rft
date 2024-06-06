@@ -140,6 +140,42 @@ signed integers. Strings are a composite type consisting of the size as "U16"
 followed by ASCII-characters. Padding is made explicit via the field name
 "Padding" and constant values are assigned with a "=".
 
+# Overview
+
+This section gives a rough overview over the protocol and provides basic
+information necessary to follow the detailed description in the following
+sections.
+
+The RFT protocol is a simple layer 7 protocol for Robust File Transfer.
+It sits on-top of layer 4 with a single RFT packet send as a UDP SDU.
+The packet structure is shown in the following figure:
+
+~~~
+                       +-----------+----------------------------------+
+                       | ACK Frame |            Data Frame            |
++----------------------+-----------+----------------------------------+
+| VER | CID | FN | CRC |                                              |
++----------------------+       Payload (zero or multiple frames)      |
+|        Header        |                                              |
++----------------------+----------------------------------------------+
+|                               RFT Packet                            |
++---------------------------------------------------------------------+
+|                                UDP SDU                              |
++---------------------------------------------------------------------+
+~~~
+
+The header contains a version field (VER) for evolvability, as connection
+ID (CID) uniquely identifying the connection on both ends, a frame number
+(FN) counting the number of frames send in the payload, and a
+cyclic-redundancy-check (CRC) checksum to validate the packet integrity.
+
+TODO
+
+The next section provides detailed information about connection-related
+topics, e.g. establishment, reliability, congestion control and more.
+The section after that explains the message format and framing in more detail,
+and lists all the different frame and command types.
+
 # Connection
 
 The protocol is connection-based. Connections are identified a singular
