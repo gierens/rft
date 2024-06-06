@@ -203,6 +203,29 @@ connection ID (CID) unique on both sides.
 
 ## Establishment
 
+### Connection ID Negotiation
+
+The connection establishment is and via a two-way handshake and is initiated by
+the client by sending a packet with connection ID 0. The server responds with
+the UDP packet having reversed IP addresses and ports, containing an RFT
+packet with the connection ID chosen by the server. The server knows all
+IDs of established connections and must make the new one is unique.
+
+This simple connection establishment is limited to a single handshake at a
+time per UDP source port. If the client wishes to establish multiple over
+a single port it can attach a ConnectionIdChangeFrame with a proposed
+connection ID. The server then sends back the handshake response to that
+connection ID and in case the proposal is already used for another connection
+attaches another ConnectionIdChangeFrame with the new unique connection ID
+chosen by the server.
+
+### Version Interoperability
+
+Before responding to a handshake response the server must validate that the
+client protocol version is interoperable with its own. So long as RFT is
+still in draft phase with rapid breaking changes the versions of client
+and server have to strictly match.
+
 ## Teardown
 
 ## Recovery
