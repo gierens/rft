@@ -241,8 +241,8 @@ Client                                                       Server
 This simple connection establishment is limited to a single handshake
 at a time per UDP source port. If the client wishes to establish multiple over
 a single port it can attach a ConnectionIdChangeFrame with a proposed
-connection ID. The server acknowledges this and sends back the handshake
-response to that connection ID:
+connection ID for the new one (NEW) and 0 for the old one (OLD). The server
+acknowledges this and sends back the handshake response to that connection ID:
 
 ~~~
 Client                                                       Server
