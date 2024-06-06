@@ -129,6 +129,12 @@ Command:
 : A typed request initiated by the client to the server, e.g. to initiate
 a file transfer.
 
+Sender:
+: The endpoint sending a packet or frame.
+
+Receiver:
+: The endpoint receiving a packet or frame.
+
 ## Notation
 
 This document defines `U4`, `U8`, `U16`, `U32`, `U64` as unsigned 4-, 8-, 16-, 32-, or 64-bit integers.
