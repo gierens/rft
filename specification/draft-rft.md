@@ -226,19 +226,49 @@ the UDP packet having reversed IP addresses and ports, containing an RFT
 packet with the connection ID chosen by the server. The server knows all
 IDs of established connections and must make the new one is unique.
 
-TODO sequence diagram of this
+~~~
+Client                                                       Server
+   |                                                           |
+   |----------------------[CID:0, FN:0]----------------------->|
+   |                                                           |
+   |<---------------------[CID:1, FN:0]------------------------|
+   |                                                           |
+   v                                                           v
+~~~
 
 ### Connection ID Negotiation
 
 This simple connection establishment is limited to a single handshake
 at a time per UDP source port. If the client wishes to establish multiple over
 a single port it can attach a ConnectionIdChangeFrame with a proposed
-connection ID. The server then sends back the handshake response to that
-connection ID and in case the proposal is already used for another connection
-attaches another ConnectionIdChangeFrame with the new unique connection ID
-chosen by the server.
+connection ID. The server acknowledges this and sends back the handshake
+response to that connection ID:
 
-TODO sequence diagram of this
+~~~
+Client                                                       Server
+   |                                                           |
+   |--------[CID:0, FN:1][CHCID, FID:1, OLD:0, NEW:3]--------->|
+   |                                                           |
+   |<----------------[CID:3, FN:0][ACK, FID:1]-----------------|
+   |                                                           |
+   v                                                           v
+~~~
+
+In case the proposal is already used for another connection
+attaches another ConnectionIdChangeFrame (CHCID) with the new unique connection
+ID chosen by the server.
+
+~~~
+Client                                                       Server
+   |                                                           |
+   |--------[CID:0, FN:1][CHCID, FID:1, OLD:0, NEW:3]--------->|
+   |                                                           |
+   |<--[CID:3, FN:1][ACK, FID:1][CHCID, FID:1, OLD:3, NEW:9]---|
+   |                                                           |
+   |-----------------[CID:9, FN:0][ACK, FID:1]-----------------|
+   |                                                           |
+   v                                                           v
+~~~
 
 ### Version Interoperability
 
