@@ -109,6 +109,9 @@ Frame:
 : A typed and sized information unit making up (possible with others) the
 payload of an RFT packet.
 
+Empty Packet:
+: A packet without frames.
+
 Command:
 : A typed request initiated by the client to the server, e.g. to initiate
 a file transfer.
