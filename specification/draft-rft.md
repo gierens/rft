@@ -232,6 +232,10 @@ and server have to strictly match.
 
 ## Teardown
 
+If the client wishes to close the connection it simply sends a ExitCommand.
+Then the AckFrame for this command is the last one the server sends for this
+connection.
+
 ## Recovery
 
 ## Migration
