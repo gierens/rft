@@ -190,7 +190,10 @@ additional logic besides version matching, connection identification, and
 packet integrity validation. The most important types are AckFrames for
 acknowledging frames based on their frame ID (FID), CommandFrames to issue
 commands on the server, and DataFrames to transport data for the commands to
-read or write a file.
+read or write a file. File data in the ReadCommand and WriteCommand as well
+as in DataFrames is indexed by byte offset and length making both transfer
+recovery and parallel transfers even of different parts of the same file
+possible.
 
 The next section provides detailed information about connection-related
 topics, e.g. establishment, reliability, congestion control and more.
