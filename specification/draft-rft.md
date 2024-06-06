@@ -347,13 +347,31 @@ are subjects to retransmission. If a peer has nothing to send, but wishes
 to explicitly inform the other end of a migration, the peer can simply
 send an empty packet (thus a packet without frames).
 
-## Recovery
-
 ## Flow Control
+
+The congestion control is inspired TCP's AIMD algorithm.
+To indicate the available receive buffer size the receiver sends back a
+FlowFrame to the sender. The sender must not exceed the indicated limit
+(FWND).
 
 ## Congestion Control
 
-## Timeout
+A congestion window (CWND) limits the amount of message in-flight.
+The window scaling foes through two phases:
+
+Slow Start:
+: The congestion window starts at 1 and is updated for each packet
+containing an AckFrame as "CWND_NEW = min(2 * CWND, FWND)" with FWND being
+the window indicated by flow control, and ends once the slow start threshold
+is reached.
+
+Congestion Avoidance:
+: After the slow start the AIMD is used. The congestion window is increased
+by one for each fully acknowledged packet. In case a retransmission is
+necessary congestion is assumed and the congestion window is halved and
+avoidance continues from there. A timeout causes a reset of the congestion
+window to one and continuous with a slow start with the threshold set half
+the number of packets inflight.
 
 # File Transfer
 
