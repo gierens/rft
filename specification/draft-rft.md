@@ -187,9 +187,9 @@ cyclic-redundancy-check (CRC) checksum to validate the packet integrity.
 After the header follows the payload which holds one or more RFT frames.
 These serve both for data transfer as well as any additional logic besides
 version matching, connection identification, and packet integrity validation.
-The most important types are ACK frames for acknowledging frames based on
-their frame ID (FID), command frames to issue commands on the server,
-and data frames to transport data for the commands to read or write a file.
+The most important types are AckFrames for acknowledging frames based on
+their frame ID (FID), CommandFrames to issue commands on the server,
+and DataFrames to transport data for the commands to read or write a file.
 
 The next section provides detailed information about connection-related
 topics, e.g. establishment, reliability, congestion control and more.
