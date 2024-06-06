@@ -140,6 +140,26 @@ signed integers. Strings are a composite type consisting of the size as "U16"
 followed by ASCII-characters. Padding is made explicit via the field name
 "Padding" and constant values are assigned with a "=".
 
+# Connection
+
+## Establishment
+
+## Teardown
+
+## Recovery
+
+## Migration
+
+## Reliability
+
+## Flow Control
+
+## Congestion Control
+
+## Checksumming
+
+## Multiple Transfers
+
 # Body [REPLACE]
 
 Some body text [REPLACE]
