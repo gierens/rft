@@ -142,6 +142,9 @@ followed by ASCII-characters. Padding is made explicit via the field name
 
 # Connection
 
+The protocol is connection-based. Connections are identified a singular
+connection ID unique on both sides.
+
 ## Establishment
 
 ## Teardown
