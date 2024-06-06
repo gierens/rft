@@ -90,7 +90,7 @@ It supports connection migration based on connection IDs, in spirit similar to Q
 RFT is based on UDP, connection-oriented and stateful.
 A point-to-point connection supports 
 
-## Requirements Language
+## Keywords
 
 {::boilerplate bcp14-tagged}
 
