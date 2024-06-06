@@ -55,6 +55,7 @@ author:
 
 normative:
   RFC0768: #UDP
+  RFC0768: #TCP-CCA
   RFC9000: #QUIC
   RFC3629: #UTF-8 strings
   RFC3385: #CRC32
@@ -317,7 +318,7 @@ Client                                                       Server
    |<-----[CID:3, FN:1][DATA, FID:14, OFF:1000, LEN:1000]------|
    |<-----[CID:3, FN:1][DATA, FID:15, OFF:2000, LEN:1000]------|
    |                                                           |
-   |----------------[CID:3, FN:0][ACK, FID:15]---------------->|
+   |----------------[CID:3, FN:1][ACK, FID:15]---------------->|
    |                                                           |
    v                                                           v
 ~~~~
@@ -373,9 +374,94 @@ avoidance continues from there. A timeout causes a reset of the congestion
 window to one and continuous with a slow start with the threshold set half
 the number of packets inflight.
 
+# Commands
+
+TODO write a more general section about commands, responses and error handling.
+
 # File Transfer
 
+File transfer works both ways via the respective command. Commands can
+only be issues by the client and have to be completed before a new command
+can be run.
+
+## Read
+
+To read a file from the server the client issues a read command with
+the respective file path and indicates from which offset and how much
+it wants to read. An offset of zero indicates a complete read. The server
+then begins to transfer the file in chunks of data frames to the client.
+The end-of-file (EOF) is signalled with an empty data frame.
+
+The following example demonstrates the read of a file with path "hello":
+
+~~~~ LANGUAGE-REPLACE/DELETE
+Client                                                       Server
+  |                                                             |
+  |---[CID:3, FN:1][CMD, FID:3, READ, "hello", OFF:0, LEN:0]--->|
+  |                                                             |
+  |<--[CID:3, FN:2][ACK, FID:3][DATA, FID:13, OFF:0, LEN:1000]--|
+  |<------[CID:3, FN:1][DATA, FID:14, OFF:1000, LEN:1000]-------|
+  |<------[CID:3, FN:1][DATA, FID:15, OFF:2000, LEN:1000]-------|
+  |                                                             |
+  |-----------------[CID:3, FN:1][ACK, FID:15]----------------->|
+  |                                                             |
+  |<------[CID:3, FN:1][DATA, FID:16, OFF:3000, LEN:1000]-------|
+  |<------[CID:3, FN:1][DATA, FID:17, OFF:4000, LEN:177]--------|
+  |                    [DATA, FID:18, OFF:4178, LEN:0]          |
+  |                                                             |
+  |-----------------[CID:3, FN:1][ACK, FID:18]----------------->|
+  |                                                             |
+  v                                                             v
+~~~~
+{: title='Sequence diagram for an example file read' }
+
+## Write
+
+To write a file to the server the client issues a write command with
+the respective file path and indicates from which offset and how much
+it wants to write. An offset of zero indicates a complete read. The client
+immediately transfers the file in chunks of data frames to the server.
+The end-of-file (EOF) is signalled with an empty data frame.
+
+The following example demonstrates the write of a file with path "test":
+
+~~~~ LANGUAGE-REPLACE/DELETE
+Client                                                       Server
+  |                                                             |
+  |---[CID:3, FN:1][CMD, FID:4, WRITE, "test", OFF:0, LEN:0]--->|
+  |                [DATA, FID:5, OFF:0, LEN:1000]               |
+  |-------[CID:3, FN:1][DATA, FID:6, OFF:1000, LEN:1000]------->|
+  |                                                             |
+  |<----------------[CID:3, FN:1][ACK, FID:6]-------------------|
+  |                                                             |
+  |-------[CID:3, FN:1][DATA, FID:7, OFF:2000, LEN:1000]------->|
+  |-------[CID:3, FN:1][DATA, FID:8, OFF:3000, LEN:526]-------->|
+  |                    [DATA, FID:9, OFF:3527, LEN:0]           |
+  |                                                             |
+  |-----------------[CID:3, FN:1][ACK, FID:9]------------------>|
+  |                                                             |
+  v                                                             v
+~~~~
+{: title='Sequence diagram for an example file write' }
+
 ## Multiple Transfers
+
+The client can issue multiple commands over a single connection. Note however
+that commands can only be issued once the previous command is completed or
+failed. This means a connection can serve multiple transfers in sequence.
+
+Parallelization can be achieved using multiple connections, either to
+transfer different files entirely or different parts of a file using the
+offset and length fields of the read and write commands.
+
+## Recovery
+
+When a connection drop occurs during a transfer the client may wish to
+continue the transmission were it left of. For this it can re-issue the
+command in a new connection with the offset set to one of the first not
+received or not acknowledged frame. The optional checksum field of the
+commands allow the client to ensure that the file is still the same on the
+server.
 
 # Message Formats
 
