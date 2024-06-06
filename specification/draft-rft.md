@@ -339,6 +339,11 @@ sender to do a fast retransmission.
 
 ### Checksumming
 
+Every packet has a checksum field containing the first 20 bits of the CRC-32
+hash of the entire packet. The receiver must validate this checksum upon
+receipt of a packet and discard it if if does not match and invoke a fast
+retransmission.
+
 ## Recovery
 
 ## Migration
