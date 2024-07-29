@@ -2,6 +2,9 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 
 use clap::Parser;
+use zerocopy::{AsBytes, FromBytes};
+
+mod protocol;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -45,5 +48,17 @@ struct Cli {
 
 fn main() {
     let args = Cli::parse();
-    println!("Host: {}", args.host);
+
+    let packet = protocol::Packet {
+        version: 1,
+        connection_id: 1,
+        checksum: [0; 3],
+    };
+    println!("{:p}", &packet);
+    let bytes = packet.as_bytes();
+    println!("{:?}", bytes);
+    println!("{:p}", bytes);
+    let packet2 = protocol::Packet::ref_from(bytes).unwrap();
+    println!("{:?}", packet2);
+    println!("{:p}", packet2);
 }
