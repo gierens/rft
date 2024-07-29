@@ -19,13 +19,13 @@ pub struct Packet<'a> {
 
 #[derive(Debug)]
 pub enum Frame<'a> {
-    Ack(&'a Ack),
-    Exit(&'a Exit),
+    Ack(&'a AckFrame),
+    Exit(&'a ExitFrame),
 }
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
-pub struct Ack {
+pub struct AckFrame {
     pub typ: u8,
     pub stream_id: u16,
     pub frame_id: u32,
@@ -33,8 +33,145 @@ pub struct Ack {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
-pub struct Exit {
+pub struct ExitFrame {
     pub typ: u8,
+}
+
+#[derive(Debug, AsBytes, FromZeroes, FromBytes)]
+#[repr(C, packed)]
+pub struct ConnIdChangeFrame {
+    pub typ: u8,
+    pub old_cid: u32,
+    pub new_cid: u32,
+}
+
+#[derive(Debug, AsBytes, FromZeroes, FromBytes)]
+#[repr(C, packed)]
+pub struct FlowControlFrame {
+    pub typ: u8,
+    pub window_size: u32,
+}
+
+#[derive(Debug, AsBytes, FromZeroes, FromBytes)]
+#[repr(C, packed)]
+pub struct AnswerHeader {
+    pub typ: u8,
+    pub stream_id: u16,
+    pub frame_id: u32,
+    pub command_frame_id: u32,
+}
+
+#[derive(Debug)]
+pub struct AnswerFrame<'a> {
+    pub header: AnswerHeader,
+    pub payload: &'a [u8],
+}
+
+#[derive(Debug, AsBytes, FromZeroes, FromBytes)]
+#[repr(C, packed)]
+pub struct ErrorFrameHeader {
+    pub typ: u8,
+    pub stream_id: u16,
+    pub frame_id: u32,
+    pub command_frame_id: u32,
+}
+
+#[derive(Debug)]
+pub struct ErrorFrame<'a> {
+    pub header: ErrorFrameHeader,
+    pub payload: &'a [u8],
+}
+
+#[derive(Debug, AsBytes, FromZeroes, FromBytes)]
+#[repr(C, packed)]
+pub struct DataHeader {
+    pub typ: u8,
+    pub stream_id: u16,
+    pub frame_id: u32,
+    pub offset: [u8; 3],
+    pub length: [u8; 3],
+}
+
+#[derive(Debug)]
+pub struct DataFrame<'a> {
+    pub header: DataHeader,
+    pub payload: &'a [u8],
+}
+
+#[derive(Debug, AsBytes, FromZeroes, FromBytes)]
+#[repr(C, packed)]
+pub struct ReadHeader {
+    pub typ: u8,
+    pub stream_id: u16,
+    pub frame_id: u32,
+    pub flags: u8,
+    pub offset: [u8; 3],
+    pub length: [u8; 3],
+    pub checksum: u32,
+}
+
+#[derive(Debug)]
+pub struct ReadCommand<'a> {
+    pub header: ReadHeader,
+    pub path: &'a str,
+}
+
+#[derive(Debug, AsBytes, FromZeroes, FromBytes)]
+#[repr(C, packed)]
+pub struct ChecksumHeader {
+    pub typ: u8,
+    pub stream_id: u16,
+    pub frame_id: u32,
+}
+
+#[derive(Debug, AsBytes, FromZeroes, FromBytes)]
+#[repr(C, packed)]
+pub struct WriteHeader {
+    pub typ: u8,
+    pub stream_id: u16,
+    pub frame_id: u32,
+    pub offset: [u8; 3],
+    pub length: [u8; 3],
+}
+
+#[derive(Debug)]
+pub struct WriteCommand<'a> {
+    pub header: WriteHeader,
+    pub path: &'a str,
+}
+
+#[derive(Debug)]
+pub struct ChecksumCommand<'a> {
+    pub header: ChecksumHeader,
+    pub path: &'a str,
+}
+
+#[derive(Debug, AsBytes, FromZeroes, FromBytes)]
+#[repr(C, packed)]
+pub struct StatHeader {
+    pub typ: u8,
+    pub stream_id: u16,
+    pub frame_id: u32,
+}
+
+#[derive(Debug)]
+pub struct StatCommand<'a> {
+    pub header: StatHeader,
+    pub path: &'a str,
+}
+
+#[derive(Debug, AsBytes, FromZeroes, FromBytes)]
+#[repr(C, packed)]
+pub struct ListHeader {
+    pub typ: u8,
+    pub stream_id: u16,
+    pub frame_id: u32,
+}
+
+#[derive(Debug)]
+pub struct ListCommand<'a> {
+    pub header: ListHeader,
+    pub path: &'a str,
 }
 
 impl<'a> Packet<'a> {
@@ -51,22 +188,22 @@ impl<'a> Packet<'a> {
         while index < bytes.len() {
             let frame = match bytes[index] {
                 0 => {
-                    let frame_size = size_of::<Ack>();
+                    let frame_size = size_of::<AckFrame>();
                     if bytes.len() - index < frame_size {
                         return Err(anyhow!("Buffer to short for ack frame"));
                     }
                     Frame::Ack(
-                        Ack::ref_from(&bytes[index..index + frame_size])
+                        AckFrame::ref_from(&bytes[index..index + frame_size])
                             .context("Cannot transmute ack frame")?,
                     )
                 }
                 1 => {
-                    let frame_size = size_of::<Exit>();
+                    let frame_size = size_of::<ExitFrame>();
                     if bytes.len() - index < frame_size {
                         return Err(anyhow!("Buffer to short for exit frame"));
                     }
                     Frame::Exit(
-                        Exit::ref_from(&bytes[index..index + frame_size])
+                        ExitFrame::ref_from(&bytes[index..index + frame_size])
                             .context("Cannot transmute exit frame")?,
                     )
                 }
