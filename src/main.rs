@@ -10,12 +10,14 @@ struct Cli {
         short,
         long,
         action,
-        help = "Run in server mode, conflicts with host and files arguments."
+        help = "Run in server mode, conflicts with host and files arguments.",
+        conflicts_with = "host",
+        conflicts_with = "files"
     )]
     server: bool,
 
-    #[arg(help = "IP address of the server", conflicts_with = "server")]
-    host: IpAddr,
+    #[arg(help = "IP address of the server", required_unless_present = "server")]
+    host: Option<IpAddr>,
 
     #[arg(
         short = 't',
@@ -34,8 +36,11 @@ struct Cli {
     #[arg(short, help = "Markov probability that packet lost after lost packet.")]
     q: Option<f64>,
 
-    #[arg(help = "Files to download from the server", conflicts_with = "server")]
-    files: Vec<PathBuf>,
+    #[arg(
+        help = "Files to download from the server",
+        required_unless_present = "server"
+    )]
+    files: Option<Vec<PathBuf>>,
 }
 
 fn main() {
