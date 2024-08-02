@@ -53,9 +53,20 @@ fn main() {
     let packet_header = protocol::PacketHeader {
         version: 1,
         connection_id: 1,
-        checksum: [0; 3],
+        checksum: [2; 3],
     };
-    let bytes = packet_header.as_bytes();
-    let packet = Packet::parse(bytes).expect("Parsing failed");
+    dbg!(packet_header.as_bytes());
+    let packet = Packet::parse(&packet_header.as_bytes()).expect("Parsing failed");
+    println!("{:?}", packet);
+    let frame = protocol::AckFrame {
+        typ: 0,
+        frame_id: 1,
+        stream_id: 1,
+    };
+    dbg!(frame.as_bytes());
+    let vec = [packet_header.as_bytes(), frame.as_bytes()].concat();
+    let bytes = vec.as_slice();
+    dbg!(bytes.as_bytes());
+    let packet = Packet::parse(&bytes).expect("Parsing failed");
     println!("{:?}", packet);
 }
