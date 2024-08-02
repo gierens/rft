@@ -29,6 +29,12 @@ where
     }
 }
 
+trait Parse<'a> {
+    fn parse(bytes: &'a [u8], index: &mut usize) -> Result<Self, anyhow::Error>
+    where
+        Self: Sized;
+}
+
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
 pub struct PacketHeader {
