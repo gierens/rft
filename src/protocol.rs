@@ -21,7 +21,18 @@ pub struct Packet<'a> {
 pub enum Frame<'a> {
     Ack(&'a AckFrame),
     Exit(&'a ExitFrame),
+    ConnIdChange(&'a ConnIdChangeFrame),
+    FlowControl(&'a FlowControlFrame),
+    Answer(AnswerFrame<'a>),
+    Error(ErrorFrame<'a>),
+    Data(DataFrame<'a>),
+    Read(ReadCommand<'a>),
+    Write(WriteCommand<'a>),
+    Checksum(ChecksumCommand<'a>),
+    Stat(StatCommand<'a>),
+    List(ListCommand<'a>),
 }
+use Frame::*;
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
@@ -174,6 +185,21 @@ pub struct ListCommand<'a> {
     pub path: &'a str,
 }
 
+macro_rules! frame_from_bytes {
+    ($bytes:ident, $index:ident, $variant:ident, $frame:ident) => {{
+        let frame_size = size_of::<$frame>();
+        if $bytes.len() - $index < frame_size {
+            return Err(anyhow!("Buffer to short for $frame"));
+        }
+        let frame = $variant(
+            $frame::ref_from(&$bytes[$index..$index + frame_size])
+                .context("Cannot transmute $frame")?,
+        );
+        $index += frame_size;
+        frame
+    }};
+}
+
 impl<'a> Packet<'a> {
     pub fn parse(bytes: &'a [u8]) -> Result<Packet, anyhow::Error> {
         let header_size = size_of::<PacketHeader>();
@@ -181,32 +207,25 @@ impl<'a> Packet<'a> {
             return Err(anyhow!("Buffer to short for packet header"));
         }
         let mut packet = Packet {
-            header: PacketHeader::ref_from(bytes).context("Cannot transmute packet header")?,
+            header: PacketHeader::ref_from(&bytes[0..header_size])
+                .context("Cannot transmute packet header")?,
             frames: Vec::new(),
         };
-        let index = header_size;
+        let mut index = header_size;
         while index < bytes.len() {
             let frame = match bytes[index] {
-                0 => {
-                    let frame_size = size_of::<AckFrame>();
-                    if bytes.len() - index < frame_size {
-                        return Err(anyhow!("Buffer to short for ack frame"));
-                    }
-                    Frame::Ack(
-                        AckFrame::ref_from(&bytes[index..index + frame_size])
-                            .context("Cannot transmute ack frame")?,
-                    )
-                }
-                1 => {
-                    let frame_size = size_of::<ExitFrame>();
-                    if bytes.len() - index < frame_size {
-                        return Err(anyhow!("Buffer to short for exit frame"));
-                    }
-                    Frame::Exit(
-                        ExitFrame::ref_from(&bytes[index..index + frame_size])
-                            .context("Cannot transmute exit frame")?,
-                    )
-                }
+                0 => frame_from_bytes!(bytes, index, Ack, AckFrame),
+                1 => frame_from_bytes!(bytes, index, Exit, ExitFrame),
+                2 => frame_from_bytes!(bytes, index, ConnIdChange, ConnIdChangeFrame),
+                3 => frame_from_bytes!(bytes, index, FlowControl, FlowControlFrame),
+                // 4 => frame_from_bytes!(bytes, index, Answer, AnswerFrame),
+                // 5 => frame_from_bytes!(bytes, index, Error, ErrorFrame),
+                // 6 => frame_from_bytes!(bytes, index, Data, DataFrame),
+                // 7 => frame_from_bytes!(bytes, index, Read, ReadCommand),
+                // 8 => frame_from_bytes!(bytes, index, Write, WriteCommand),
+                // 9 => frame_from_bytes!(bytes, index, Checksum, ChecksumCommand),
+                // 10 => frame_from_bytes!(bytes, index, Stat, StatCommand),
+                // 11 => frame_from_bytes!(bytes, index, List, ListCommand),
                 _ => continue,
             };
             packet.frames.push(frame);
