@@ -3,6 +3,31 @@ use std::mem::size_of;
 use zerocopy::FromBytes;
 use zerocopy_derive::{AsBytes, FromBytes, FromZeroes};
 
+trait Parse<'a> {
+    fn parse(bytes: &'a [u8], index: usize) -> Result<(&'a Self, usize), anyhow::Error>
+    where
+        Self: Sized;
+}
+
+impl<'a, T> Parse<'a> for T
+where
+    T: FromBytes,
+{
+    fn parse(bytes: &'a [u8], mut index: usize) -> Result<(&'a Self, usize), anyhow::Error>
+    where
+        Self: Sized,
+    {
+        let size = size_of::<Self>();
+        let name = std::any::type_name::<Self>();
+        if bytes.len() - index < size {
+            return Err(anyhow!("Buffer to short for {name}"));
+        }
+        let obj = Self::ref_from(&bytes[index..index + size]).context("Cannot transmute {name}")?;
+        index += size;
+        Ok((obj, index))
+    }
+}
+
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
 pub struct PacketHeader {
@@ -202,16 +227,11 @@ macro_rules! frame_from_bytes {
 
 impl<'a> Packet<'a> {
     pub fn parse(bytes: &'a [u8]) -> Result<Packet, anyhow::Error> {
-        let header_size = size_of::<PacketHeader>();
-        if bytes.len() < header_size {
-            return Err(anyhow!("Buffer to short for packet header"));
-        }
+        let (header, mut index) = PacketHeader::parse(bytes, 0)?;
         let mut packet = Packet {
-            header: PacketHeader::ref_from(&bytes[0..header_size])
-                .context("Cannot transmute packet header")?,
+            header,
             frames: Vec::new(),
         };
-        let mut index = header_size;
         while index < bytes.len() {
             let frame = match bytes[index] {
                 0 => frame_from_bytes!(bytes, index, Ack, AckFrame),
