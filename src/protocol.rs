@@ -3,13 +3,13 @@ use std::mem::size_of;
 use zerocopy::FromBytes;
 use zerocopy_derive::{AsBytes, FromBytes, FromZeroes};
 
-trait Parse<'a> {
+trait ParseZeroCopy<'a> {
     fn parse(bytes: &'a [u8], index: &mut usize) -> Result<&'a Self, anyhow::Error>
     where
         Self: Sized;
 }
 
-impl<'a, T> Parse<'a> for T
+impl<'a, T> ParseZeroCopy<'a> for T
 where
     T: FromBytes,
 {
