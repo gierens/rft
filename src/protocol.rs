@@ -232,20 +232,19 @@ macro_rules! frame_from_bytes {
     }};
 }
 
-impl<'a> Packet<'a> {
-    pub fn parse(bytes: &'a [u8]) -> Result<Packet, anyhow::Error> {
-        let mut index = 0;
-        let header = PacketHeader::parse(bytes, &mut index)?;
+impl<'a> Parse<'a> for Packet<'a> {
+    fn parse(bytes: &'a [u8], index: &mut usize) -> Result<Packet<'a>, anyhow::Error> {
+        let header = PacketHeader::parse(bytes, index)?;
         let mut packet = Packet {
             header,
             frames: Vec::new(),
         };
-        while index < bytes.len() {
-            let frame = match bytes[index] {
-                0 => Ack(AckFrame::parse(bytes, &mut index)?),
-                1 => Exit(ExitFrame::parse(bytes, &mut index)?),
-                2 => ConnIdChange(ConnIdChangeFrame::parse(bytes, &mut index)?),
-                3 => FlowControl(FlowControlFrame::parse(bytes, &mut index)?),
+        while *index < bytes.len() {
+            let frame = match bytes[*index] {
+                0 => Ack(AckFrame::parse(bytes, index)?),
+                1 => Exit(ExitFrame::parse(bytes, index)?),
+                2 => ConnIdChange(ConnIdChangeFrame::parse(bytes, index)?),
+                3 => FlowControl(FlowControlFrame::parse(bytes, index)?),
                 // 4 => frame_from_bytes!(bytes, index, Answer, AnswerFrame),
                 // 5 => frame_from_bytes!(bytes, index, Error, ErrorFrame),
                 // 6 => frame_from_bytes!(bytes, index, Data, DataFrame),
