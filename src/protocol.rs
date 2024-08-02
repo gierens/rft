@@ -4,7 +4,7 @@ use zerocopy::FromBytes;
 use zerocopy_derive::{AsBytes, FromBytes, FromZeroes};
 
 trait Parse<'a> {
-    fn parse(bytes: &'a [u8], index: usize) -> Result<(&'a Self, usize), anyhow::Error>
+    fn parse(bytes: &'a [u8], index: &mut usize) -> Result<&'a Self, anyhow::Error>
     where
         Self: Sized;
 }
@@ -13,18 +13,19 @@ impl<'a, T> Parse<'a> for T
 where
     T: FromBytes,
 {
-    fn parse(bytes: &'a [u8], mut index: usize) -> Result<(&'a Self, usize), anyhow::Error>
+    fn parse(bytes: &'a [u8], index: &mut usize) -> Result<&'a Self, anyhow::Error>
     where
         Self: Sized,
     {
         let size = size_of::<Self>();
         let name = std::any::type_name::<Self>();
-        if bytes.len() - index < size {
+        if bytes.len() - *index < size {
             return Err(anyhow!("Buffer to short for {name}"));
         }
-        let obj = Self::ref_from(&bytes[index..index + size]).context("Cannot transmute {name}")?;
-        index += size;
-        Ok((obj, index))
+        let obj =
+            Self::ref_from(&bytes[*index..*index + size]).context("Cannot reference as {name}")?;
+        *index += size;
+        Ok(obj)
     }
 }
 
@@ -227,17 +228,18 @@ macro_rules! frame_from_bytes {
 
 impl<'a> Packet<'a> {
     pub fn parse(bytes: &'a [u8]) -> Result<Packet, anyhow::Error> {
-        let (header, mut index) = PacketHeader::parse(bytes, 0)?;
+        let mut index = 0;
+        let header = PacketHeader::parse(bytes, &mut index)?;
         let mut packet = Packet {
             header,
             frames: Vec::new(),
         };
         while index < bytes.len() {
             let frame = match bytes[index] {
-                0 => frame_from_bytes!(bytes, index, Ack, AckFrame),
-                1 => frame_from_bytes!(bytes, index, Exit, ExitFrame),
-                2 => frame_from_bytes!(bytes, index, ConnIdChange, ConnIdChangeFrame),
-                3 => frame_from_bytes!(bytes, index, FlowControl, FlowControlFrame),
+                0 => Ack(AckFrame::parse(bytes, &mut index)?),
+                1 => Exit(ExitFrame::parse(bytes, &mut index)?),
+                2 => ConnIdChange(ConnIdChangeFrame::parse(bytes, &mut index)?),
+                3 => FlowControl(FlowControlFrame::parse(bytes, &mut index)?),
                 // 4 => frame_from_bytes!(bytes, index, Answer, AnswerFrame),
                 // 5 => frame_from_bytes!(bytes, index, Error, ErrorFrame),
                 // 6 => frame_from_bytes!(bytes, index, Data, DataFrame),
