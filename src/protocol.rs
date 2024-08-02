@@ -260,3 +260,14 @@ impl<'a> Parse<'a> for Packet<'a> {
         Ok(packet)
     }
 }
+
+impl<'a> Packet<'a> {
+    pub fn parse_full(bytes: &'a [u8]) -> Result<Packet<'a>, anyhow::Error> {
+        let mut index = 0;
+        let packet = Self::parse(bytes, &mut index)?;
+        if index != bytes.len() {
+            return Err(anyhow!("Buffer too long for Packet"));
+        }
+        Ok(packet)
+    }
+}

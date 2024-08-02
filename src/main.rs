@@ -56,7 +56,7 @@ fn main() {
         checksum: [2; 3],
     };
     dbg!(packet_header.as_bytes());
-    let packet = Packet::parse(&packet_header.as_bytes()).expect("Parsing failed");
+    let packet = Packet::parse_full(&packet_header.as_bytes()).expect("Parsing failed");
     dbg!(packet);
     let frame = protocol::AckFrame {
         typ: 0,
@@ -67,6 +67,6 @@ fn main() {
     let vec = [packet_header.as_bytes(), frame.as_bytes()].concat();
     let bytes = vec.as_slice();
     dbg!(bytes.as_bytes());
-    let packet = Packet::parse(&bytes).expect("Parsing failed");
+    let packet = Packet::parse_full(&bytes).expect("Parsing failed");
     dbg!(packet);
 }
