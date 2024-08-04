@@ -6,10 +6,18 @@ use zerocopy::FromBytes;
 
 use crate::protocol::*;
 
-#[derive(Debug)]
 pub struct Packet {
     header_bytes: Bytes,
     pub frames: Vec<Frame>,
+}
+
+impl Debug for Packet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Packet")
+            .field("header", &self.header())
+            .field("frames", &self.frames)
+            .finish()
+    }
 }
 
 impl Packet {
