@@ -48,6 +48,10 @@ impl PacketMut {
         length
     }
 
+    pub fn add_frame(&mut self, frame: FrameMut) {
+        self.frames.push(frame);
+    }
+
     pub fn assemble(&self) -> BytesMut {
         let mut bytes = self.header_bytes.clone();
         for frame in &self.frames {
