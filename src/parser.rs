@@ -71,10 +71,21 @@ pub enum Frames<'a> {
     // List(&'a ListCommand<'a>),
 }
 
-#[derive(Debug)]
 pub struct Frame {
     header_bytes: Bytes,
     payload_bytes: Option<Bytes>,
+}
+
+impl Debug for Frame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.header() {
+            Frames::Ack(frame) => frame.fmt(f),
+            Frames::Exit(frame) => frame.fmt(f),
+            Frames::ConnIdChange(frame) => frame.fmt(f),
+            Frames::FlowControl(frame) => frame.fmt(f),
+            Frames::Answer(frame) => frame.fmt(f),
+        }
+    }
 }
 
 impl<'a> Frame {
