@@ -94,13 +94,13 @@ impl<'a> Frame {
         self.header_bytes[0]
     }
 
-    pub fn header(&'a self) -> FrameHeader<'a> {
+    pub fn header(&'a self) -> Frames<'a> {
         match self.code() {
-            0 => FrameHeader::Ack(self.into()),
-            1 => FrameHeader::Exit(self.into()),
-            2 => FrameHeader::ConnIdChange(self.into()),
-            3 => FrameHeader::FlowControl(self.into()),
-            4 => FrameHeader::Answer(self.into()),
+            0 => Frames::Ack(self.into()),
+            1 => Frames::Exit(self.into()),
+            2 => Frames::ConnIdChange(self.into()),
+            3 => Frames::FlowControl(self.into()),
+            4 => Frames::Answer(self.into()),
             _ => panic!("Unknown frame type"),
         }
     }
@@ -153,7 +153,7 @@ impl<'a> From<&'a Frame> for AnswerFrame<'a> {
 }
 
 #[derive(Debug)]
-pub enum FrameHeader<'a> {
+pub enum Frames<'a> {
     Ack(&'a AckFrame),
     Exit(&'a ExitFrame),
     ConnIdChange(&'a ConnIdChangeFrame),
@@ -167,20 +167,3 @@ pub enum FrameHeader<'a> {
     // Stat(&'a StatCommand<'a>),
     // List(&'a ListCommand<'a>),
 }
-
-// #[derive(Debug)]
-// pub enum Frame<'a> {
-//     Ack(&'a AckFrame),
-//     Exit(&'a ExitFrame),
-//     ConnIdChange(&'a ConnIdChangeFrame),
-//     FlowControl(&'a FlowControlFrame),
-//     Answer(AnswerFrame<'a>),
-//     Error(&'a ErrorFrame<'a>),
-//     Data(&'a DataFrame<'a>),
-//     Read(&'a ReadCommand<'a>),
-//     Write(&'a WriteCommand<'a>),
-//     Checksum(&'a ChecksumCommand<'a>),
-//     Stat(&'a StatCommand<'a>),
-//     List(&'a ListCommand<'a>),
-// }
-// use Frame::*;
