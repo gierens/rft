@@ -31,7 +31,7 @@ where
     }
 }
 
-trait Parse<'a> {
+pub trait Parse<'a> {
     fn parse(bytes: &'a [u8], index: &mut usize) -> Result<Self, anyhow::Error>
     where
         Self: Sized;
