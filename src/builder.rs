@@ -120,9 +120,29 @@ impl<'a> From<&'a FrameMut> for &'a AckFrame {
     }
 }
 
+impl From<AckFrame> for FrameMut {
+    fn from(frame: AckFrame) -> Self {
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(&frame));
+        FrameMut {
+            header_bytes,
+            payload_bytes: None,
+        }
+    }
+}
+
 impl<'a> From<&'a FrameMut> for &'a ExitFrame {
     fn from(frame: &'a FrameMut) -> Self {
         ExitFrame::ref_from(frame.header_bytes.as_ref()).expect("Failed to reference ExitFrame")
+    }
+}
+
+impl From<ExitFrame> for FrameMut {
+    fn from(frame: ExitFrame) -> Self {
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(&frame));
+        FrameMut {
+            header_bytes,
+            payload_bytes: None,
+        }
     }
 }
 
@@ -133,10 +153,30 @@ impl<'a> From<&'a FrameMut> for &'a ConnIdChangeFrame {
     }
 }
 
+impl From<ConnIdChangeFrame> for FrameMut {
+    fn from(frame: ConnIdChangeFrame) -> Self {
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(&frame));
+        FrameMut {
+            header_bytes,
+            payload_bytes: None,
+        }
+    }
+}
+
 impl<'a> From<&'a FrameMut> for &'a FlowControlFrame {
     fn from(frame: &'a FrameMut) -> Self {
         FlowControlFrame::ref_from(frame.header_bytes.as_ref())
             .expect("Failed to reference FlowControlFrame")
+    }
+}
+
+impl From<FlowControlFrame> for FrameMut {
+    fn from(frame: FlowControlFrame) -> Self {
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(&frame));
+        FrameMut {
+            header_bytes,
+            payload_bytes: None,
+        }
     }
 }
 
@@ -152,6 +192,16 @@ impl<'a> From<&'a FrameMut> for AnswerFrameMut<'a> {
             header: AnswerHeader::ref_from(frame.header_bytes.as_ref())
                 .expect("Failed to reference AnswerFrame"),
             payload: frame.payload().expect("Missing payload in AnswerFrame"),
+        }
+    }
+}
+
+impl From<AnswerFrameMut<'_>> for FrameMut {
+    fn from(frame: AnswerFrameMut) -> Self {
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header));
+        FrameMut {
+            header_bytes,
+            payload_bytes: Some(frame.payload.clone()),
         }
     }
 }
