@@ -85,4 +85,17 @@ fn main() {
     let bytes = bytes::Bytes::from(bytes);
     let packet = parser::Packet::parse(bytes).expect("Parsing failed");
     dbg!(packet);
+
+    let packet_header = protocol::PacketHeader {
+        version: 1,
+        connection_id: 1,
+        checksum: [2; 3],
+    };
+    let mut packet = builder::PacketMut::new(packet_header);
+    packet.header().version = 2;
+    dbg!(&packet);
+    let bytes = packet.assemble();
+    dbg!(&bytes);
+    let packet = parser::Packet::parse(bytes.into()).expect("Parsing failed");
+    dbg!(packet);
 }
