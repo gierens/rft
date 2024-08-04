@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use protocol::Packet;
+use runtime_sized_array::Array;
 use zerocopy::{AsBytes, FromBytes};
 
 mod protocol;
@@ -55,16 +56,25 @@ fn main() {
         connection_id: 1,
         checksum: [2; 3],
     };
-    dbg!(packet_header.as_bytes());
-    let packet = Packet::parse_full(&packet_header.as_bytes()).expect("Parsing failed");
-    dbg!(packet);
+
     let frame = protocol::AckFrame {
         typ: 0,
         frame_id: 1,
         stream_id: 1,
     };
-    dbg!(frame.as_bytes());
-    let vec = [packet_header.as_bytes(), frame.as_bytes()].concat();
+
+    let frame2 = protocol::AnswerFrame {
+        header: &protocol::AnswerHeader {
+            typ: 4,
+            stream_id: 1,
+            frame_id: 2,
+            command_frame_id: 3,
+            payload_length: 8,
+        },
+        payload: vec![1, 2, 3, 4, 5, 6, 7, 8].into(),
+    };
+    let frame2_vec = frame2.as_vec();
+    let vec = [packet_header.as_bytes(), frame.as_bytes(), &frame2_vec].concat();
     let bytes = vec.as_slice();
     dbg!(bytes.as_bytes());
     let packet = Packet::parse_full(&bytes).expect("Parsing failed");
