@@ -84,6 +84,22 @@ impl Packet {
 }
 
 #[derive(Debug)]
+pub enum Frames<'a> {
+    Ack(&'a AckFrame),
+    Exit(&'a ExitFrame),
+    ConnIdChange(&'a ConnIdChangeFrame),
+    FlowControl(&'a FlowControlFrame),
+    Answer(AnswerFrame<'a>),
+    // Error(&'a ErrorFrame<'a>),
+    // Data(&'a DataFrame<'a>),
+    // Read(&'a ReadCommand<'a>),
+    // Write(&'a WriteCommand<'a>),
+    // Checksum(&'a ChecksumCommand<'a>),
+    // Stat(&'a StatCommand<'a>),
+    // List(&'a ListCommand<'a>),
+}
+
+#[derive(Debug)]
 pub struct Frame {
     header_bytes: Bytes,
     payload_bytes: Option<Bytes>,
@@ -150,20 +166,4 @@ impl<'a> From<&'a Frame> for AnswerFrame<'a> {
             payload: frame.payload().expect("Missing payload in AnswerFrame"),
         }
     }
-}
-
-#[derive(Debug)]
-pub enum Frames<'a> {
-    Ack(&'a AckFrame),
-    Exit(&'a ExitFrame),
-    ConnIdChange(&'a ConnIdChangeFrame),
-    FlowControl(&'a FlowControlFrame),
-    Answer(AnswerFrame<'a>),
-    // Error(&'a ErrorFrame<'a>),
-    // Data(&'a DataFrame<'a>),
-    // Read(&'a ReadCommand<'a>),
-    // Write(&'a WriteCommand<'a>),
-    // Checksum(&'a ChecksumCommand<'a>),
-    // Stat(&'a StatCommand<'a>),
-    // List(&'a ListCommand<'a>),
 }
