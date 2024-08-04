@@ -6,6 +6,7 @@ use protocol_old::Packet;
 use runtime_sized_array::Array;
 use zerocopy::{AsBytes, FromBytes};
 
+mod builder;
 mod parser;
 mod protocol;
 mod protocol_old;
