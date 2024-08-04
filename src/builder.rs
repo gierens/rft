@@ -24,6 +24,17 @@ impl PacketMut {
             .expect("Failed to reference PacketHeader")
     }
 
+    pub fn length(&self) -> usize {
+        let mut length = self.header_bytes.len();
+        for frame in &self.frames {
+            length += frame.header_bytes.len();
+            if let Some(payload_bytes) = &frame.payload_bytes {
+                length += payload_bytes.len();
+            }
+        }
+        length
+    }
+
     pub fn assemble(&self) -> BytesMut {
         let mut bytes = self.header_bytes.clone();
         for frame in &self.frames {
