@@ -27,7 +27,12 @@ impl PacketMut {
         }
     }
 
-    pub fn header(&mut self) -> &mut PacketHeader {
+    pub fn header(&self) -> &PacketHeader {
+        PacketHeader::ref_from(self.header_bytes.as_ref())
+            .expect("Failed to reference PacketHeader")
+    }
+
+    pub fn header_mut(&mut self) -> &mut PacketHeader {
         PacketHeader::mut_from(self.header_bytes.as_mut())
             .expect("Failed to reference PacketHeader")
     }
