@@ -2,12 +2,12 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 
 use clap::Parser;
-use protocol::Packet;
+use protocol_old::Packet;
 use runtime_sized_array::Array;
 use zerocopy::{AsBytes, FromBytes};
 
-mod protocol;
 mod protocol2;
+mod protocol_old;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -52,20 +52,20 @@ struct Cli {
 fn main() {
     let args = Cli::parse();
 
-    let packet_header = protocol::PacketHeader {
+    let packet_header = protocol_old::PacketHeader {
         version: 1,
         connection_id: 1,
         checksum: [2; 3],
     };
 
-    let frame = protocol::AckFrame {
+    let frame = protocol_old::AckFrame {
         typ: 0,
         frame_id: 1,
         stream_id: 1,
     };
 
-    let frame2 = protocol::AnswerFrame {
-        header: &protocol::AnswerHeader {
+    let frame2 = protocol_old::AnswerFrame {
+        header: &protocol_old::AnswerHeader {
             typ: 4,
             stream_id: 1,
             frame_id: 2,
