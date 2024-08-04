@@ -7,6 +7,7 @@ use runtime_sized_array::Array;
 use zerocopy::{AsBytes, FromBytes};
 
 mod protocol;
+mod protocol2;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -75,8 +76,11 @@ fn main() {
     };
     let frame2_vec = frame2.as_vec();
     let vec = [packet_header.as_bytes(), frame.as_bytes(), &frame2_vec].concat();
-    let bytes = vec.as_slice();
-    dbg!(bytes.as_bytes());
-    let packet = Packet::parse_full(&bytes).expect("Parsing failed");
+    let bytes = vec.as_slice().to_vec();
+    // dbg!(bytes.as_bytes());
+    // let packet = Packet::parse_full(&bytes).expect("Parsing failed");
+    // dbg!(packet);
+    let bytes = bytes::Bytes::from(bytes);
+    let packet = protocol2::PacketParser::parse(bytes).expect("Parsing failed");
     dbg!(packet);
 }
