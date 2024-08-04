@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Context};
+use runtime_sized_array::Array;
+use std::fmt::{self, Debug, Formatter};
 use std::mem::size_of;
-use zerocopy::FromBytes;
+use zerocopy::{AsBytes, FromBytes};
 use zerocopy_derive::{AsBytes, FromBytes, FromZeroes};
 
 trait ParseZeroCopy<'a> {
@@ -19,7 +21,7 @@ where
     {
         let size = size_of::<Self>();
         let name = std::any::type_name::<Self>();
-        if bytes.len() - *index < size {
+        if *index + size > bytes.len() {
             return Err(anyhow!("Buffer to short for {name}"));
         }
         let obj =
@@ -56,13 +58,13 @@ pub enum Frame<'a> {
     ConnIdChange(&'a ConnIdChangeFrame),
     FlowControl(&'a FlowControlFrame),
     Answer(AnswerFrame<'a>),
-    Error(ErrorFrame<'a>),
-    Data(DataFrame<'a>),
-    Read(ReadCommand<'a>),
-    Write(WriteCommand<'a>),
-    Checksum(ChecksumCommand<'a>),
-    Stat(StatCommand<'a>),
-    List(ListCommand<'a>),
+    Error(&'a ErrorFrame<'a>),
+    Data(&'a DataFrame<'a>),
+    Read(&'a ReadCommand<'a>),
+    Write(&'a WriteCommand<'a>),
+    Checksum(&'a ChecksumCommand<'a>),
+    Stat(&'a StatCommand<'a>),
+    List(&'a ListCommand<'a>),
 }
 use Frame::*;
 
@@ -102,12 +104,57 @@ pub struct AnswerHeader {
     pub stream_id: u16,
     pub frame_id: u32,
     pub command_frame_id: u32,
+    pub payload_length: u16,
 }
 
-#[derive(Debug)]
+// TODO:
+// - fork and stabilize runtime_sized_array
+// - use runtime_sized_array for payload data in other structs
+// - write macro to simplify trait impls
+
 pub struct AnswerFrame<'a> {
-    pub header: AnswerHeader,
-    pub payload: &'a [u8],
+    pub header: &'a AnswerHeader,
+    pub payload: Array<u8>,
+}
+
+impl Debug for AnswerFrame<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let payload = self.payload.clone().into_vec();
+        f.debug_struct("AnswerFrame")
+            .field("header", &self.header)
+            .field("payload", &payload)
+            .finish()
+    }
+}
+
+impl<'a> Parse<'a> for AnswerFrame<'a> {
+    fn parse(bytes: &'a [u8], index: &mut usize) -> Result<AnswerFrame<'a>, anyhow::Error> {
+        let name = std::any::type_name::<Self>();
+        let header_size = size_of::<AnswerHeader>();
+        let header = AnswerHeader::parse(&bytes, index)?;
+        if *index + header.payload_length as usize > bytes.len() {
+            return Err(anyhow!("Buffer to short for {name}"));
+        }
+        let payload = unsafe {
+            Array::from_pointer(
+                bytes[*index..*index + header.payload_length as usize]
+                    .as_ptr()
+                    .cast_mut(),
+                header.payload_length as usize,
+            )
+        };
+        *index += header.payload_length as usize;
+        Ok(AnswerFrame { header, payload })
+    }
+}
+
+impl AnswerFrame<'_> {
+    pub fn as_vec(self) -> Vec<u8> {
+        let mut vec1: Vec<u8> = self.header.as_bytes().into();
+        let mut vec2: Vec<u8> = self.payload.into_vec().clone();
+        vec1.append(&mut vec2);
+        vec1
+    }
 }
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
@@ -245,7 +292,7 @@ impl<'a> Parse<'a> for Packet<'a> {
                 1 => Exit(ExitFrame::parse(bytes, index)?),
                 2 => ConnIdChange(ConnIdChangeFrame::parse(bytes, index)?),
                 3 => FlowControl(FlowControlFrame::parse(bytes, index)?),
-                // 4 => frame_from_bytes!(bytes, index, Answer, AnswerFrame),
+                4 => Answer(AnswerFrame::parse(bytes, index)?),
                 // 5 => frame_from_bytes!(bytes, index, Error, ErrorFrame),
                 // 6 => frame_from_bytes!(bytes, index, Data, DataFrame),
                 // 7 => frame_from_bytes!(bytes, index, Read, ReadCommand),
