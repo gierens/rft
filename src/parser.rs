@@ -28,6 +28,7 @@ impl Debug for Packet {
 
 impl Packet {
     pub fn parse(bytes: Bytes) -> Result<Self, anyhow::Error> {
+        // TODO bounds check
         let mut header_bytes = bytes;
         let mut frame_bytes = header_bytes.split_off(size_of::<PacketHeader>());
         let mut packet = Packet {
@@ -35,51 +36,15 @@ impl Packet {
             frames: Vec::new(),
         };
         while !frame_bytes.is_empty() {
-            let mut header_bytes = frame_bytes;
-            let code = header_bytes[0];
-            dbg!(code);
-            match code {
-                0 => {
-                    frame_bytes = header_bytes.split_off(size_of::<AckFrame>());
-                    packet.frames.push(Frame {
-                        header_bytes,
-                        payload_bytes: None,
-                    });
-                }
-                1 => {
-                    frame_bytes = header_bytes.split_off(size_of::<ExitFrame>());
-                    packet.frames.push(Frame {
-                        header_bytes,
-                        payload_bytes: None,
-                    });
-                }
-                2 => {
-                    frame_bytes = header_bytes.split_off(size_of::<ConnIdChangeFrame>());
-                    packet.frames.push(Frame {
-                        header_bytes,
-                        payload_bytes: None,
-                    });
-                }
-                3 => {
-                    frame_bytes = header_bytes.split_off(size_of::<FlowControlFrame>());
-                    packet.frames.push(Frame {
-                        header_bytes,
-                        payload_bytes: None,
-                    });
-                }
-                4 => {
-                    let mut payload_bytes = header_bytes.split_off(size_of::<AnswerHeader>());
-                    let payload_length =
-                        payload_bytes[0] as usize | (payload_bytes[1] as usize) << 8;
-                    payload_bytes = payload_bytes.split_off(2);
-                    frame_bytes = payload_bytes.split_off(payload_length);
-                    packet.frames.push(Frame {
-                        header_bytes,
-                        payload_bytes: Some(payload_bytes),
-                    });
-                }
+            let code = frame_bytes[0];
+            packet.frames.push(match code {
+                0 => AckFrame::parse(&mut frame_bytes)?,
+                1 => ExitFrame::parse(&mut frame_bytes)?,
+                2 => ConnIdChangeFrame::parse(&mut frame_bytes)?,
+                3 => FlowControlFrame::parse(&mut frame_bytes)?,
+                4 => AnswerFrame::parse(&mut frame_bytes)?,
                 _ => return Err(anyhow!("Unknown frame type")),
-            }
+            });
         }
         Ok(packet)
     }
