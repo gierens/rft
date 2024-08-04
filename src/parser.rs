@@ -57,7 +57,8 @@ impl Packet {
                     let mut payload_bytes = header_bytes.split_off(size_of::<AnswerHeader>());
                     let payload_length =
                         payload_bytes[0] as usize | (payload_bytes[1] as usize) << 8;
-                    frame_bytes = payload_bytes.split_off(2 + payload_length);
+                    payload_bytes = payload_bytes.split_off(2);
+                    frame_bytes = payload_bytes.split_off(payload_length);
                     packet.frames.push(Frame {
                         header_bytes,
                         payload_bytes: Some(payload_bytes),
