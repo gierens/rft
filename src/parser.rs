@@ -6,6 +6,12 @@ use zerocopy::FromBytes;
 
 use crate::protocol::*;
 
+trait Parse {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error>
+    where
+        Self: Sized;
+}
+
 pub struct Packet {
     header_bytes: Bytes,
     pub frames: Vec<Frame>,
@@ -132,9 +138,31 @@ impl<'a> From<&'a Frame> for &'a AckFrame {
     }
 }
 
+impl Parse for AckFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<AckFrame>());
+        Ok(Frame {
+            header_bytes,
+            payload_bytes: None,
+        })
+    }
+}
+
 impl<'a> From<&'a Frame> for &'a ExitFrame {
     fn from(frame: &'a Frame) -> Self {
         ExitFrame::ref_from(frame.header_bytes.as_ref()).expect("Failed to reference ExitFrame")
+    }
+}
+
+impl Parse for ExitFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<ExitFrame>());
+        Ok(Frame {
+            header_bytes,
+            payload_bytes: None,
+        })
     }
 }
 
@@ -145,10 +173,32 @@ impl<'a> From<&'a Frame> for &'a ConnIdChangeFrame {
     }
 }
 
+impl Parse for ConnIdChangeFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<ConnIdChangeFrame>());
+        Ok(Frame {
+            header_bytes,
+            payload_bytes: None,
+        })
+    }
+}
+
 impl<'a> From<&'a Frame> for &'a FlowControlFrame {
     fn from(frame: &'a Frame) -> Self {
         FlowControlFrame::ref_from(frame.header_bytes.as_ref())
             .expect("Failed to reference FlowControlFrame")
+    }
+}
+
+impl Parse for FlowControlFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<FlowControlFrame>());
+        Ok(Frame {
+            header_bytes,
+            payload_bytes: None,
+        })
     }
 }
 
@@ -165,5 +215,19 @@ impl<'a> From<&'a Frame> for AnswerFrame<'a> {
                 .expect("Failed to reference AnswerFrame"),
             payload: frame.payload().expect("Missing payload in AnswerFrame"),
         }
+    }
+}
+
+impl<'a> Parse for AnswerFrame<'a> {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<AnswerHeader>());
+        let length_bytes = bytes.split_to(2);
+        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_bytes = bytes.split_to(payload_length);
+        Ok(Frame {
+            header_bytes,
+            payload_bytes: Some(payload_bytes),
+        })
     }
 }
