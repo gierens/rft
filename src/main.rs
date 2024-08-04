@@ -6,6 +6,7 @@ use protocol_old::Packet;
 use runtime_sized_array::Array;
 use zerocopy::{AsBytes, FromBytes};
 
+mod parser;
 mod protocol;
 mod protocol_old;
 
@@ -81,6 +82,6 @@ fn main() {
     // let packet = Packet::parse_full(&bytes).expect("Parsing failed");
     // dbg!(packet);
     let bytes = bytes::Bytes::from(bytes);
-    let packet = protocol::PacketParser::parse(bytes).expect("Parsing failed");
+    let packet = parser::PacketParser::parse(bytes).expect("Parsing failed");
     dbg!(packet);
 }
