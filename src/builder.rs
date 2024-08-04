@@ -4,10 +4,18 @@ use zerocopy::{AsBytes, FromBytes};
 
 use crate::protocol::*;
 
-#[derive(Debug)]
 pub struct PacketMut {
     header_bytes: BytesMut,
     pub frames: Vec<FrameMut>,
+}
+
+impl Debug for PacketMut {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PacketMut")
+            .field("header", &self.header())
+            .field("frames", &self.frames)
+            .finish()
+    }
 }
 
 impl PacketMut {
