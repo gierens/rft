@@ -48,7 +48,97 @@ impl PacketMut {
 }
 
 #[derive(Debug)]
+pub enum FramesMut<'a> {
+    Ack(&'a AckFrame),
+    Exit(&'a ExitFrame),
+    ConnIdChange(&'a ConnIdChangeFrame),
+    FlowControl(&'a FlowControlFrame),
+    Answer(AnswerFrameMut<'a>),
+    // Error(&'a ErrorFrame<'a>),
+    // Data(&'a DataFrame<'a>),
+    // Read(&'a ReadCommand<'a>),
+    // Write(&'a WriteCommand<'a>),
+    // Checksum(&'a ChecksumCommand<'a>),
+    // Stat(&'a StatCommand<'a>),
+    // List(&'a ListCommand<'a>),
+}
+
 pub struct FrameMut {
     header_bytes: BytesMut,
     payload_bytes: Option<BytesMut>,
+}
+
+impl Debug for FrameMut {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.header() {
+            FramesMut::Ack(frame) => frame.fmt(f),
+            FramesMut::Exit(frame) => frame.fmt(f),
+            FramesMut::ConnIdChange(frame) => frame.fmt(f),
+            FramesMut::FlowControl(frame) => frame.fmt(f),
+            FramesMut::Answer(frame) => frame.fmt(f),
+        }
+    }
+}
+
+impl<'a> FrameMut {
+    fn code(&self) -> u8 {
+        self.header_bytes[0]
+    }
+
+    pub fn header(&'a self) -> FramesMut<'a> {
+        match self.code() {
+            0 => FramesMut::Ack(self.into()),
+            1 => FramesMut::Exit(self.into()),
+            2 => FramesMut::ConnIdChange(self.into()),
+            3 => FramesMut::FlowControl(self.into()),
+            4 => FramesMut::Answer(self.into()),
+            _ => panic!("Unknown frame type"),
+        }
+    }
+
+    pub fn payload(&self) -> Option<&BytesMut> {
+        self.payload_bytes.as_ref()
+    }
+}
+
+impl<'a> From<&'a FrameMut> for &'a AckFrame {
+    fn from(frame: &'a FrameMut) -> Self {
+        AckFrame::ref_from(frame.header_bytes.as_ref()).expect("Failed to reference AckFrameMut")
+    }
+}
+
+impl<'a> From<&'a FrameMut> for &'a ExitFrame {
+    fn from(frame: &'a FrameMut) -> Self {
+        ExitFrame::ref_from(frame.header_bytes.as_ref()).expect("Failed to reference ExitFrame")
+    }
+}
+
+impl<'a> From<&'a FrameMut> for &'a ConnIdChangeFrame {
+    fn from(frame: &'a FrameMut) -> Self {
+        ConnIdChangeFrame::ref_from(frame.header_bytes.as_ref())
+            .expect("Failed to reference ConnIdChangeFrame")
+    }
+}
+
+impl<'a> From<&'a FrameMut> for &'a FlowControlFrame {
+    fn from(frame: &'a FrameMut) -> Self {
+        FlowControlFrame::ref_from(frame.header_bytes.as_ref())
+            .expect("Failed to reference FlowControlFrame")
+    }
+}
+
+#[derive(Debug)]
+pub struct AnswerFrameMut<'a> {
+    pub header: &'a AnswerHeader,
+    pub payload: &'a BytesMut,
+}
+
+impl<'a> From<&'a FrameMut> for AnswerFrameMut<'a> {
+    fn from(frame: &'a FrameMut) -> Self {
+        AnswerFrameMut {
+            header: AnswerHeader::ref_from(frame.header_bytes.as_ref())
+                .expect("Failed to reference AnswerFrame"),
+            payload: frame.payload().expect("Missing payload in AnswerFrame"),
+        }
+    }
 }
