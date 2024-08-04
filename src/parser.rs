@@ -50,7 +50,8 @@ impl Packet {
     }
 
     pub fn header(&self) -> &PacketHeader {
-        PacketHeader::ref_from(self.header_bytes.as_ref()).expect("Failed to parse PacketHeader")
+        PacketHeader::ref_from(self.header_bytes.as_ref())
+            .expect("Failed to reference PacketHeader")
     }
 }
 
