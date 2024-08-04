@@ -7,12 +7,13 @@ use zerocopy::FromBytes;
 use crate::protocol::*;
 
 #[derive(Debug)]
-pub struct PacketParser {
-    pub packet: Packet,
+pub struct Packet {
+    header_bytes: Bytes,
+    pub frames: Vec<Frame>,
 }
 
-impl PacketParser {
-    pub fn parse(bytes: Bytes) -> Result<PacketParser, anyhow::Error> {
+impl Packet {
+    pub fn parse(bytes: Bytes) -> Result<Self, anyhow::Error> {
         let mut header_bytes = bytes;
         let mut frame_bytes = header_bytes.split_off(size_of::<PacketHeader>());
         let mut packet = Packet {
@@ -65,17 +66,9 @@ impl PacketParser {
                 _ => return Err(anyhow!("Unknown frame type")),
             }
         }
-        Ok(PacketParser { packet })
+        Ok(packet)
     }
-}
 
-#[derive(Debug)]
-pub struct Packet {
-    header_bytes: Bytes,
-    pub frames: Vec<Frame>,
-}
-
-impl Packet {
     pub fn header(&self) -> &PacketHeader {
         PacketHeader::ref_from(self.header_bytes.as_ref()).expect("Failed to parse PacketHeader")
     }
