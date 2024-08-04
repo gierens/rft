@@ -103,8 +103,15 @@ impl<'a> Frame {
             .expect("Failed to parse FlowControlFrame")
     }
 
-    fn answer(&self) -> &AnswerHeader {
-        AnswerHeader::ref_from(self.header_bytes.as_ref()).expect("Failed to parse AnswerFrame")
+    fn answer(&self) -> AnswerFrame {
+        AnswerFrame {
+            header: AnswerHeader::ref_from(self.header_bytes.as_ref())
+                .expect("Failed to parse AnswerFrame"),
+            payload: self
+                .payload_bytes
+                .as_ref()
+                .expect("Missing payload in AnswerFrame"),
+        }
     }
 
     pub fn header(&'a self) -> FrameHeader<'a> {
@@ -121,6 +128,12 @@ impl<'a> Frame {
     pub fn payload(&self) -> Option<&Bytes> {
         self.payload_bytes.as_ref()
     }
+}
+
+#[derive(Debug)]
+pub struct AnswerFrame<'a> {
+    pub header: &'a AnswerHeader,
+    pub payload: &'a Bytes,
 }
 
 #[derive(Debug)]
