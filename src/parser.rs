@@ -86,42 +86,13 @@ impl<'a> Frame {
         self.header_bytes[0]
     }
 
-    fn ack(&self) -> &AckFrame {
-        AckFrame::ref_from(self.header_bytes.as_ref()).expect("Failed to parse AckFrame")
-    }
-
-    fn exit(&self) -> &ExitFrame {
-        ExitFrame::ref_from(self.header_bytes.as_ref()).expect("Failed to parse ExitFrame")
-    }
-
-    fn conn_id_change(&self) -> &ConnIdChangeFrame {
-        ConnIdChangeFrame::ref_from(self.header_bytes.as_ref())
-            .expect("Failed to parse ConnIdChangeFrame")
-    }
-
-    fn flow_control(&self) -> &FlowControlFrame {
-        FlowControlFrame::ref_from(self.header_bytes.as_ref())
-            .expect("Failed to parse FlowControlFrame")
-    }
-
-    fn answer(&self) -> AnswerFrame {
-        AnswerFrame {
-            header: AnswerHeader::ref_from(self.header_bytes.as_ref())
-                .expect("Failed to parse AnswerFrame"),
-            payload: self
-                .payload_bytes
-                .as_ref()
-                .expect("Missing payload in AnswerFrame"),
-        }
-    }
-
     pub fn header(&'a self) -> FrameHeader<'a> {
         match self.code() {
-            0 => FrameHeader::Ack(self.ack()),
-            1 => FrameHeader::Exit(self.exit()),
-            2 => FrameHeader::ConnIdChange(self.conn_id_change()),
-            3 => FrameHeader::FlowControl(self.flow_control()),
-            4 => FrameHeader::Answer(self.answer()),
+            0 => FrameHeader::Ack(self.into()),
+            1 => FrameHeader::Exit(self.into()),
+            2 => FrameHeader::ConnIdChange(self.into()),
+            3 => FrameHeader::FlowControl(self.into()),
+            4 => FrameHeader::Answer(self.into()),
             _ => panic!("Unknown frame type"),
         }
     }
@@ -131,10 +102,46 @@ impl<'a> Frame {
     }
 }
 
+impl<'a> From<&'a Frame> for &'a AckFrame {
+    fn from(frame: &'a Frame) -> Self {
+        AckFrame::ref_from(frame.header_bytes.as_ref()).expect("Failed to reference AckFrame")
+    }
+}
+
+impl<'a> From<&'a Frame> for &'a ExitFrame {
+    fn from(frame: &'a Frame) -> Self {
+        ExitFrame::ref_from(frame.header_bytes.as_ref()).expect("Failed to reference ExitFrame")
+    }
+}
+
+impl<'a> From<&'a Frame> for &'a ConnIdChangeFrame {
+    fn from(frame: &'a Frame) -> Self {
+        ConnIdChangeFrame::ref_from(frame.header_bytes.as_ref())
+            .expect("Failed to reference ConnIdChangeFrame")
+    }
+}
+
+impl<'a> From<&'a Frame> for &'a FlowControlFrame {
+    fn from(frame: &'a Frame) -> Self {
+        FlowControlFrame::ref_from(frame.header_bytes.as_ref())
+            .expect("Failed to reference FlowControlFrame")
+    }
+}
+
 #[derive(Debug)]
 pub struct AnswerFrame<'a> {
     pub header: &'a AnswerHeader,
     pub payload: &'a Bytes,
+}
+
+impl<'a> From<&'a Frame> for AnswerFrame<'a> {
+    fn from(frame: &'a Frame) -> Self {
+        AnswerFrame {
+            header: AnswerHeader::ref_from(frame.header_bytes.as_ref())
+                .expect("Failed to reference AnswerFrame"),
+            payload: frame.payload().expect("Missing payload in AnswerFrame"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -143,7 +150,7 @@ pub enum FrameHeader<'a> {
     Exit(&'a ExitFrame),
     ConnIdChange(&'a ConnIdChangeFrame),
     FlowControl(&'a FlowControlFrame),
-    Answer(&'a AnswerHeader),
+    Answer(AnswerFrame<'a>),
     // Error(&'a ErrorFrame<'a>),
     // Data(&'a DataFrame<'a>),
     // Read(&'a ReadCommand<'a>),
