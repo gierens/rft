@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
-mod builder;
 mod parser;
 mod protocol;
 
@@ -55,7 +54,7 @@ fn main() {
         connection_id: 1,
         checksum: [2; 3],
     };
-    let mut packet = builder::PacketMut::new(packet_header);
+    let mut packet = parser::Packet::new(packet_header);
     packet.add_frame(
         protocol::AckFrame {
             typ: 0,
@@ -65,21 +64,34 @@ fn main() {
         .into(),
     );
     packet.add_frame(
-        builder::AnswerFrameMut {
+        parser::AnswerFrameNew {
             header: &protocol::AnswerHeader {
                 typ: 4,
                 stream_id: 1,
                 frame_id: 2,
                 command_frame_id: 3,
             },
-            payload: &bytes::BytesMut::from(vec![1, 2, 3, 4, 5, 6, 7, 8].as_slice()),
+            payload: bytes::Bytes::from(vec![1, 2, 3, 4, 5, 6, 7, 8]),
         }
         .into(),
     );
-    packet.header_mut().version = 2;
+    // packet.header_mut().version = 2;
+    dbg!(&packet);
+    let bytes = packet.assemble();
+    dbg!(&bytes);
+    let mut packet = parser::Packet::parse(bytes.into()).expect("Parsing failed");
+    dbg!(&packet);
+    packet.add_frame(
+        protocol::AckFrame {
+            typ: 0,
+            frame_id: 1,
+            stream_id: 1,
+        }
+        .into(),
+    );
     dbg!(&packet);
     let bytes = packet.assemble();
     dbg!(&bytes);
     let packet = parser::Packet::parse(bytes.into()).expect("Parsing failed");
-    dbg!(packet);
+    dbg!(&packet);
 }
