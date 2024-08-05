@@ -270,6 +270,22 @@ impl From<AnswerFrame<'_>> for Frame {
     }
 }
 
+#[derive(Debug)]
+pub struct AnswerFrameNew<'a> {
+    pub header: &'a AnswerHeader,
+    pub payload: Bytes,
+}
+
+impl From<AnswerFrameNew<'_>> for Frame {
+    fn from(frame: AnswerFrameNew) -> Self {
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        Frame {
+            header_bytes,
+            payload_bytes: Some(frame.payload),
+        }
+    }
+}
+
 impl<'a> Parse for AnswerFrame<'a> {
     fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
         // TODO bounds check
