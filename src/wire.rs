@@ -84,7 +84,6 @@ pub struct ReadHeader {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
-#[allow(dead_code)]
 pub struct WriteHeader {
     pub typ: u8,
     pub stream_id: u16,
@@ -168,6 +167,7 @@ impl Packet {
                 5 => ErrorFrame::parse(&mut frame_bytes)?,
                 6 => DataFrame::parse(&mut frame_bytes)?,
                 7 => ReadFrame::parse(&mut frame_bytes)?,
+                8 => WriteFrame::parse(&mut frame_bytes)?,
                 _ => return Err(anyhow!("Unknown frame type")),
             });
         }
@@ -207,7 +207,7 @@ pub enum Frames<'a> {
     Error(ErrorFrame<'a>),
     Data(DataFrame<'a>),
     Read(ReadFrame<'a>),
-    // Write(&'a WriteFrame<'a>),
+    Write(WriteFrame<'a>),
     // Checksum(&'a ChecksumFrame<'a>),
     // Stat(&'a StatFrame<'a>),
     // List(&'a ListFrame<'a>),
@@ -229,6 +229,7 @@ impl Debug for Frame {
             Frames::Error(frame) => frame.fmt(f),
             Frames::Data(frame) => frame.fmt(f),
             Frames::Read(frame) => frame.fmt(f),
+            Frames::Write(frame) => frame.fmt(f),
         }
     }
 }
@@ -248,6 +249,7 @@ impl<'a> Frame {
             5 => Frames::Error(self.into()),
             6 => Frames::Data(self.into()),
             7 => Frames::Read(self.into()),
+            8 => Frames::Write(self.into()),
             _ => panic!("Unknown frame type"),
         }
     }
@@ -549,6 +551,68 @@ impl<'a> Parse for DataFrame<'a> {
 #[derive(Debug)]
 pub struct ReadFrame<'a> {
     pub header: &'a ReadHeader,
+    pub payload: &'a Bytes,
+}
+
+impl WriteFrame<'_> {
+    pub fn path(&self) -> &str {
+        std::str::from_utf8(self.payload.as_ref()).expect("Failed to parse path")
+    }
+}
+
+impl<'a> From<&'a Frame> for WriteFrame<'a> {
+    fn from(frame: &'a Frame) -> Self {
+        WriteFrame {
+            header: WriteHeader::ref_from(frame.header_bytes.as_ref())
+                .expect("Failed to reference WriteFrame"),
+            payload: frame.payload().expect("Missing payload in WriteFrame"),
+        }
+    }
+}
+
+impl From<WriteFrame<'_>> for Frame {
+    fn from(frame: WriteFrame) -> Self {
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        Frame {
+            header_bytes,
+            payload_bytes: Some(frame.payload.clone()),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct WriteFrameNew<'a> {
+    pub header: &'a WriteHeader,
+    pub payload: Bytes,
+}
+
+impl From<WriteFrameNew<'_>> for Frame {
+    fn from(frame: WriteFrameNew) -> Self {
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        Frame {
+            header_bytes,
+            payload_bytes: Some(frame.payload),
+        }
+    }
+}
+
+impl<'a> Parse for WriteFrame<'a> {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<WriteHeader>());
+        let length_bytes = bytes.split_to(2);
+        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_bytes = bytes.split_to(payload_length);
+        Ok(Frame {
+            header_bytes,
+            payload_bytes: Some(payload_bytes),
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct WriteFrame<'a> {
+    pub header: &'a WriteHeader,
     pub payload: &'a Bytes,
 }
 
