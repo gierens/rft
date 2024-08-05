@@ -1,8 +1,8 @@
 use anyhow::anyhow;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use std::fmt::Debug;
 use std::mem::size_of;
-use zerocopy::FromBytes;
+use zerocopy::{AsBytes, FromBytes};
 
 use crate::protocol::*;
 
@@ -27,6 +27,14 @@ impl Debug for Packet {
 }
 
 impl Packet {
+    pub fn new(header: PacketHeader) -> Self {
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
+        Packet {
+            header_bytes,
+            frames: Vec::new(),
+        }
+    }
+
     pub fn parse(bytes: Bytes) -> Result<Self, anyhow::Error> {
         // TODO bounds check
         let mut header_bytes = bytes;
