@@ -61,6 +61,23 @@ impl Packet {
         PacketHeader::ref_from(self.header_bytes.as_ref())
             .expect("Failed to reference PacketHeader")
     }
+
+    pub fn add_frame(&mut self, frame: Frame) {
+        self.frames.push(frame);
+    }
+
+    pub fn assemble(&self) -> BytesMut {
+        let mut bytes: BytesMut = self.header_bytes.clone().into();
+        for frame in &self.frames {
+            bytes.extend_from_slice(&frame.header_bytes);
+            if let Some(payload_bytes) = &frame.payload_bytes {
+                let payload_length = payload_bytes.len() as u16;
+                bytes.extend_from_slice(&payload_length.to_le_bytes());
+                bytes.extend_from_slice(&payload_bytes);
+            }
+        }
+        bytes
+    }
 }
 
 #[derive(Debug)]
