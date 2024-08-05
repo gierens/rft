@@ -48,7 +48,6 @@ struct Cli {
 // TODOs:
 // - port main to wire::tests
 // - add more tests
-// - add remaining wire::Frame types
 // - add more error handling, particularly the bounds checks
 // - add CRC32 checksum checking and generation (use crc32fast crate)
 // - improve ergonomics of packet crafting and parsing
