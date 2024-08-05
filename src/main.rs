@@ -53,6 +53,7 @@ struct Cli {
 // - improve ergonomics of packet crafting and parsing
 // - start on the server and client
 // - reduce boilerplate in wire module with macros
+// - consider splitting wire module into multiple modules
 
 fn main() {
     let _args = Cli::parse();
