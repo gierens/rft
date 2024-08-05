@@ -103,4 +103,12 @@ fn main() {
     dbg!(&bytes);
     let packet = wire::Packet::parse(bytes.into()).expect("Parsing failed");
     dbg!(&packet);
+
+    let mut hasher = crc32fast::Hasher::new();
+    hasher.reset();
+    hasher.update(&[1, 2, 3, 4, 5, 6, 7, 8]);
+    let checksum = hasher.finalize();
+    dbg!(checksum);
+    let checksum = crc32fast::hash(&[1, 2, 3, 4, 5, 6, 7, 8]);
+    dbg!(checksum);
 }
