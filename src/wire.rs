@@ -53,6 +53,7 @@ pub struct AnswerHeader {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
+#[allow(dead_code)]
 pub struct ErrorFrameHeader {
     pub typ: u8,
     pub stream_id: u16,
@@ -62,6 +63,7 @@ pub struct ErrorFrameHeader {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
+#[allow(dead_code)]
 pub struct DataHeader {
     pub typ: u8,
     pub stream_id: u16,
@@ -72,6 +74,7 @@ pub struct DataHeader {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
+#[allow(dead_code)]
 pub struct ReadHeader {
     pub typ: u8,
     pub stream_id: u16,
@@ -84,6 +87,7 @@ pub struct ReadHeader {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
+#[allow(dead_code)]
 pub struct ChecksumHeader {
     pub typ: u8,
     pub stream_id: u16,
@@ -92,6 +96,7 @@ pub struct ChecksumHeader {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
+#[allow(dead_code)]
 pub struct WriteHeader {
     pub typ: u8,
     pub stream_id: u16,
@@ -102,6 +107,7 @@ pub struct WriteHeader {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
+#[allow(dead_code)]
 pub struct StatHeader {
     pub typ: u8,
     pub stream_id: u16,
@@ -110,6 +116,7 @@ pub struct StatHeader {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
+#[allow(dead_code)]
 pub struct ListHeader {
     pub typ: u8,
     pub stream_id: u16,
