@@ -62,7 +62,6 @@ pub struct ErrorHeader {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
-#[allow(dead_code)]
 pub struct DataHeader {
     pub typ: u8,
     pub stream_id: u16,
@@ -168,6 +167,7 @@ impl Packet {
                 3 => FlowControlFrame::parse(&mut frame_bytes)?,
                 4 => AnswerFrame::parse(&mut frame_bytes)?,
                 5 => ErrorFrame::parse(&mut frame_bytes)?,
+                6 => DataFrame::parse(&mut frame_bytes)?,
                 _ => return Err(anyhow!("Unknown frame type")),
             });
         }
@@ -205,7 +205,7 @@ pub enum Frames<'a> {
     FlowControl(&'a FlowControlFrame),
     Answer(AnswerFrame<'a>),
     Error(ErrorFrame<'a>),
-    // Data(&'a DataFrame<'a>),
+    Data(DataFrame<'a>),
     // Read(&'a ReadCommand<'a>),
     // Write(&'a WriteCommand<'a>),
     // Checksum(&'a ChecksumCommand<'a>),
@@ -227,6 +227,7 @@ impl Debug for Frame {
             Frames::FlowControl(frame) => frame.fmt(f),
             Frames::Answer(frame) => frame.fmt(f),
             Frames::Error(frame) => frame.fmt(f),
+            Frames::Data(frame) => frame.fmt(f),
         }
     }
 }
@@ -244,6 +245,7 @@ impl<'a> Frame {
             3 => Frames::FlowControl(self.into()),
             4 => Frames::Answer(self.into()),
             5 => Frames::Error(self.into()),
+            6 => Frames::Data(self.into()),
             _ => panic!("Unknown frame type"),
         }
     }
@@ -473,6 +475,67 @@ impl<'a> Parse for ErrorFrame<'a> {
         let header_bytes = bytes.split_to(size_of::<ErrorHeader>());
         let length_bytes = bytes.split_to(2);
         let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_bytes = bytes.split_to(payload_length);
+        Ok(Frame {
+            header_bytes,
+            payload_bytes: Some(payload_bytes),
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct DataFrame<'a> {
+    pub header: &'a DataHeader,
+    pub payload: &'a Bytes,
+}
+
+impl<'a> From<&'a Frame> for DataFrame<'a> {
+    fn from(frame: &'a Frame) -> Self {
+        DataFrame {
+            header: DataHeader::ref_from(frame.header_bytes.as_ref())
+                .expect("Failed to reference DataFrame"),
+            payload: frame.payload().expect("Missing payload in DataFrame"),
+        }
+    }
+}
+
+impl From<DataFrame<'_>> for Frame {
+    fn from(frame: DataFrame) -> Self {
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        Frame {
+            header_bytes,
+            payload_bytes: Some(frame.payload.clone()),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct DataFrameNew<'a> {
+    pub header: &'a DataHeader,
+    pub payload: Bytes,
+}
+
+impl From<DataFrameNew<'_>> for Frame {
+    fn from(frame: DataFrameNew) -> Self {
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        Frame {
+            header_bytes,
+            payload_bytes: Some(frame.payload),
+        }
+    }
+}
+
+impl<'a> Parse for DataFrame<'a> {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<DataHeader>());
+        let header =
+            DataHeader::ref_from(header_bytes.as_ref()).expect("Failed to reference DataHeader");
+        // TODO put this into a helper function of the header struct,
+        //      or define a custom u24 type
+        let payload_length = header.length[0] as usize
+            | (header.length[1] as usize) << 8
+            | (header.length[2] as usize) << 16;
         let payload_bytes = bytes.split_to(payload_length);
         Ok(Frame {
             header_bytes,
