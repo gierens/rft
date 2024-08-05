@@ -416,3 +416,22 @@ impl<'a> Parse for AnswerFrame<'a> {
         })
     }
 }
+
+mod tests {
+    #[allow(unused_imports)]
+    use super::*;
+
+    #[test]
+    fn assemble_empty_packet() {
+        let packet_header = PacketHeader {
+            version: 1,
+            connection_id: 2,
+            checksum: [3, 4, 5],
+        };
+        let packet = Packet::new(packet_header);
+        assert_eq!(
+            packet.assemble(),
+            Bytes::from_static(&[1, 2, 0, 0, 0, 3, 4, 5])
+        );
+    }
+}
