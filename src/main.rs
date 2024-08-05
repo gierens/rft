@@ -46,7 +46,7 @@ struct Cli {
 }
 
 fn main() {
-    let args = Cli::parse();
+    let _args = Cli::parse();
 
     let packet_header = wire::PacketHeader {
         version: 1,
