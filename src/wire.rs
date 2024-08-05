@@ -53,8 +53,7 @@ pub struct AnswerHeader {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
-#[allow(dead_code)]
-pub struct ErrorFrameHeader {
+pub struct ErrorHeader {
     pub typ: u8,
     pub stream_id: u16,
     pub frame_id: u32,
@@ -168,6 +167,7 @@ impl Packet {
                 2 => ConnIdChangeFrame::parse(&mut frame_bytes)?,
                 3 => FlowControlFrame::parse(&mut frame_bytes)?,
                 4 => AnswerFrame::parse(&mut frame_bytes)?,
+                5 => ErrorFrame::parse(&mut frame_bytes)?,
                 _ => return Err(anyhow!("Unknown frame type")),
             });
         }
@@ -204,7 +204,7 @@ pub enum Frames<'a> {
     ConnIdChange(&'a ConnIdChangeFrame),
     FlowControl(&'a FlowControlFrame),
     Answer(AnswerFrame<'a>),
-    // Error(&'a ErrorFrame<'a>),
+    Error(ErrorFrame<'a>),
     // Data(&'a DataFrame<'a>),
     // Read(&'a ReadCommand<'a>),
     // Write(&'a WriteCommand<'a>),
@@ -226,6 +226,7 @@ impl Debug for Frame {
             Frames::ConnIdChange(frame) => frame.fmt(f),
             Frames::FlowControl(frame) => frame.fmt(f),
             Frames::Answer(frame) => frame.fmt(f),
+            Frames::Error(frame) => frame.fmt(f),
         }
     }
 }
@@ -242,6 +243,7 @@ impl<'a> Frame {
             2 => Frames::ConnIdChange(self.into()),
             3 => Frames::FlowControl(self.into()),
             4 => Frames::Answer(self.into()),
+            5 => Frames::Error(self.into()),
             _ => panic!("Unknown frame type"),
         }
     }
@@ -407,6 +409,68 @@ impl<'a> Parse for AnswerFrame<'a> {
     fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
         // TODO bounds check
         let header_bytes = bytes.split_to(size_of::<AnswerHeader>());
+        let length_bytes = bytes.split_to(2);
+        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_bytes = bytes.split_to(payload_length);
+        Ok(Frame {
+            header_bytes,
+            payload_bytes: Some(payload_bytes),
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct ErrorFrame<'a> {
+    pub header: &'a ErrorHeader,
+    pub payload: &'a Bytes,
+}
+
+impl ErrorFrame<'_> {
+    pub fn message(&self) -> &str {
+        std::str::from_utf8(self.payload.as_ref()).expect("Failed to parse message")
+    }
+}
+
+impl<'a> From<&'a Frame> for ErrorFrame<'a> {
+    fn from(frame: &'a Frame) -> Self {
+        ErrorFrame {
+            header: ErrorHeader::ref_from(frame.header_bytes.as_ref())
+                .expect("Failed to reference ErrorFrame"),
+            payload: frame.payload().expect("Missing payload in ErrorFrame"),
+        }
+    }
+}
+
+impl From<ErrorFrame<'_>> for Frame {
+    fn from(frame: ErrorFrame) -> Self {
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        Frame {
+            header_bytes,
+            payload_bytes: Some(frame.payload.clone()),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ErrorFrameNew<'a> {
+    pub header: &'a ErrorHeader,
+    pub payload: Bytes,
+}
+
+impl From<ErrorFrameNew<'_>> for Frame {
+    fn from(frame: ErrorFrameNew) -> Self {
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        Frame {
+            header_bytes,
+            payload_bytes: Some(frame.payload),
+        }
+    }
+}
+
+impl<'a> Parse for ErrorFrame<'a> {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<ErrorHeader>());
         let length_bytes = bytes.split_to(2);
         let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
