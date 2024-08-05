@@ -3,8 +3,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
-mod parser;
-mod protocol;
+mod wire;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -49,14 +48,14 @@ struct Cli {
 fn main() {
     let args = Cli::parse();
 
-    let packet_header = protocol::PacketHeader {
+    let packet_header = wire::PacketHeader {
         version: 1,
         connection_id: 1,
         checksum: [2; 3],
     };
-    let mut packet = parser::Packet::new(packet_header);
+    let mut packet = wire::Packet::new(packet_header);
     packet.add_frame(
-        protocol::AckFrame {
+        wire::AckFrame {
             typ: 0,
             frame_id: 1,
             stream_id: 1,
@@ -64,8 +63,8 @@ fn main() {
         .into(),
     );
     packet.add_frame(
-        parser::AnswerFrameNew {
-            header: &protocol::AnswerHeader {
+        wire::AnswerFrameNew {
+            header: &wire::AnswerHeader {
                 typ: 4,
                 stream_id: 1,
                 frame_id: 2,
@@ -79,10 +78,10 @@ fn main() {
     dbg!(&packet);
     let bytes = packet.assemble();
     dbg!(&bytes);
-    let mut packet = parser::Packet::parse(bytes.into()).expect("Parsing failed");
+    let mut packet = wire::Packet::parse(bytes.into()).expect("Parsing failed");
     dbg!(&packet);
     packet.add_frame(
-        protocol::AckFrame {
+        wire::AckFrame {
             typ: 0,
             frame_id: 1,
             stream_id: 1,
@@ -92,6 +91,6 @@ fn main() {
     dbg!(&packet);
     let bytes = packet.assemble();
     dbg!(&bytes);
-    let packet = parser::Packet::parse(bytes.into()).expect("Parsing failed");
+    let packet = wire::Packet::parse(bytes.into()).expect("Parsing failed");
     dbg!(&packet);
 }
