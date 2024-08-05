@@ -53,6 +53,7 @@ struct Cli {
 // - add CRC32 checksum checking and generation (use crc32fast crate)
 // - improve ergonomics of packet crafting and parsing
 // - start on the server and client
+// - reduce boilerplate in wire module with macros
 
 fn main() {
     let _args = Cli::parse();
