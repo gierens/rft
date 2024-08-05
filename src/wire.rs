@@ -72,7 +72,6 @@ pub struct DataHeader {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
-#[allow(dead_code)]
 pub struct ReadHeader {
     pub typ: u8,
     pub stream_id: u16,
@@ -86,21 +85,21 @@ pub struct ReadHeader {
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
 #[allow(dead_code)]
-pub struct ChecksumHeader {
-    pub typ: u8,
-    pub stream_id: u16,
-    pub frame_id: u32,
-}
-
-#[derive(Debug, AsBytes, FromZeroes, FromBytes)]
-#[repr(C, packed)]
-#[allow(dead_code)]
 pub struct WriteHeader {
     pub typ: u8,
     pub stream_id: u16,
     pub frame_id: u32,
     pub offset: [u8; 3],
     pub length: [u8; 3],
+}
+
+#[derive(Debug, AsBytes, FromZeroes, FromBytes)]
+#[repr(C, packed)]
+#[allow(dead_code)]
+pub struct ChecksumHeader {
+    pub typ: u8,
+    pub stream_id: u16,
+    pub frame_id: u32,
 }
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
@@ -168,6 +167,7 @@ impl Packet {
                 4 => AnswerFrame::parse(&mut frame_bytes)?,
                 5 => ErrorFrame::parse(&mut frame_bytes)?,
                 6 => DataFrame::parse(&mut frame_bytes)?,
+                7 => ReadFrame::parse(&mut frame_bytes)?,
                 _ => return Err(anyhow!("Unknown frame type")),
             });
         }
@@ -206,11 +206,11 @@ pub enum Frames<'a> {
     Answer(AnswerFrame<'a>),
     Error(ErrorFrame<'a>),
     Data(DataFrame<'a>),
-    // Read(&'a ReadCommand<'a>),
-    // Write(&'a WriteCommand<'a>),
-    // Checksum(&'a ChecksumCommand<'a>),
-    // Stat(&'a StatCommand<'a>),
-    // List(&'a ListCommand<'a>),
+    Read(ReadFrame<'a>),
+    // Write(&'a WriteFrame<'a>),
+    // Checksum(&'a ChecksumFrame<'a>),
+    // Stat(&'a StatFrame<'a>),
+    // List(&'a ListFrame<'a>),
 }
 
 pub struct Frame {
@@ -228,6 +228,7 @@ impl Debug for Frame {
             Frames::Answer(frame) => frame.fmt(f),
             Frames::Error(frame) => frame.fmt(f),
             Frames::Data(frame) => frame.fmt(f),
+            Frames::Read(frame) => frame.fmt(f),
         }
     }
 }
@@ -246,6 +247,7 @@ impl<'a> Frame {
             4 => Frames::Answer(self.into()),
             5 => Frames::Error(self.into()),
             6 => Frames::Data(self.into()),
+            7 => Frames::Read(self.into()),
             _ => panic!("Unknown frame type"),
         }
     }
@@ -536,6 +538,68 @@ impl<'a> Parse for DataFrame<'a> {
         let payload_length = header.length[0] as usize
             | (header.length[1] as usize) << 8
             | (header.length[2] as usize) << 16;
+        let payload_bytes = bytes.split_to(payload_length);
+        Ok(Frame {
+            header_bytes,
+            payload_bytes: Some(payload_bytes),
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct ReadFrame<'a> {
+    pub header: &'a ReadHeader,
+    pub payload: &'a Bytes,
+}
+
+impl ReadFrame<'_> {
+    pub fn path(&self) -> &str {
+        std::str::from_utf8(self.payload.as_ref()).expect("Failed to parse path")
+    }
+}
+
+impl<'a> From<&'a Frame> for ReadFrame<'a> {
+    fn from(frame: &'a Frame) -> Self {
+        ReadFrame {
+            header: ReadHeader::ref_from(frame.header_bytes.as_ref())
+                .expect("Failed to reference ReadFrame"),
+            payload: frame.payload().expect("Missing payload in ReadFrame"),
+        }
+    }
+}
+
+impl From<ReadFrame<'_>> for Frame {
+    fn from(frame: ReadFrame) -> Self {
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        Frame {
+            header_bytes,
+            payload_bytes: Some(frame.payload.clone()),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ReadFrameNew<'a> {
+    pub header: &'a ReadHeader,
+    pub payload: Bytes,
+}
+
+impl From<ReadFrameNew<'_>> for Frame {
+    fn from(frame: ReadFrameNew) -> Self {
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        Frame {
+            header_bytes,
+            payload_bytes: Some(frame.payload),
+        }
+    }
+}
+
+impl<'a> Parse for ReadFrame<'a> {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<ReadHeader>());
+        let length_bytes = bytes.split_to(2);
+        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
         Ok(Frame {
             header_bytes,
