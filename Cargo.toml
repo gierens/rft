@@ -11,5 +11,4 @@ clap = { version = "4.5", features = ["derive"] }
 zerocopy = "0.7"
 zerocopy-derive = "0.7"
 anyhow = "1.0"
-runtime-sized-array = { git = "https://github.com/gierens/runtime-sized-array", branch = "stable" }
 bytes = "1.7"

@@ -152,15 +152,9 @@ dependencies = [
  "anyhow",
  "bytes",
  "clap",
- "runtime-sized-array",
  "zerocopy",
  "zerocopy-derive",
 ]
-
-[[package]]
-name = "runtime-sized-array"
-version = "0.1.0"
-source = "git+https://github.com/gierens/runtime-sized-array?branch=stable#9738cbaa7902300757685a67eaf5550e8b8bec24"
 
 [[package]]
 name = "strsim"
