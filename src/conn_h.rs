@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use std::io::{Read, Write, BufReader};
 use anyhow::{Result, anyhow};
 use bytes::{Bytes};
-use crate::wire::{AnswerFrame, AnswerHeader, ErrorFrame, ErrorHeader, Frame, Frames};
+use crate::wire::{AckFrame, AnswerFrame, AnswerHeader, ErrorFrame, ErrorHeader, Frame, Frames};
 use crate::wire::Frames::{Answer};
 
 use ring::digest;
@@ -28,6 +28,7 @@ fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
 }
 
 fn make_error (stream_id: u16, frame_id: u32, msg: String) -> Frame {
+    //TODO: Payload length field??
     ErrorFrame { header: &ErrorHeader {
         typ: 5,
         stream_id,
@@ -46,10 +47,67 @@ pub async fn stream_handler<S: Sink<Frame> + Unpin>(mut stream: impl Stream<Item
                     sink.send(make_error(cmd.header.stream_id, cmd.header.frame_id, "Not implemented".into())).await.expect("stream_handler: could not send response");
                     Ok(())
                 }
+
                 Frames::Write(cmd) => {
-                    sink.send(make_error(cmd.header.stream_id, cmd.header.frame_id, "Not Implemented".into())).await.expect("stream_handler: could not send response");
+                    //parse path
+                    let path: String;
+                    match str::from_utf8(cmd.payload) {
+                        Ok(s) => {path = s.into() }
+                        Err(_) => {
+                            sink.send(make_error(cmd.header.stream_id, cmd.header.frame_id, "Invalid Payload".into())).await.expect("stream_handler: could not send response");
+                            return Ok(())
+                        }
+                    }
+
+                    //create / open file
+                    let mut file: File;
+                    match
+                    {
+                        if cmd.header.offset == [0, 0, 0] {
+                            File::create(path)
+                        } else {
+                            File::open(path)
+                        }
+                    }
+                    {
+                        Ok(f) => {file = f}
+                        Err(e) => {
+                            sink.send(make_error(cmd.header.stream_id, cmd.header.frame_id, e.to_string())).await.expect("stream_handler: could not send response");
+                            return Ok(())
+                        }
+                    }
+
+                    //receive Data frames and write to file; stop if transmission complete
+                    let mut cum_ack_ctr = 1;
+                    loop {
+                        //TODO: add timeout
+                        let next_frame = stream.next().await;
+                        if let Some(Frames::Data(f)) = next_frame {
+                            //empty data frame marks end of transmission
+                            if f.header.length == [0,0,0] { break; }
+
+                            //TODO: write / append f.payload to file
+
+                            //send ACK
+                            cum_ack_ctr += 1;
+                            if cum_ack_ctr >= 5 { //TODO: how to determine cumulative ACK interval?
+                                sink.send(AckFrame{
+                                    typ: 0,
+                                    stream_id: cmd.header.stream_id,
+                                    frame_id: f.header.frame_id,
+                                }.into()).await.expect("stream_handler: could not send ACK");
+
+                                cum_ack_ctr = 0;
+                            }
+                        } else {
+                            sink.send(make_error(cmd.header.stream_id, cmd.header.frame_id, "Illegal Frame Received".into())).await.expect("stream_handler: could not send response");
+                            //TODO: what to do here? Delete the File?
+                            return Ok(())
+                        }
+                    }
                     Ok(())
                 }
+
                 Frames::Checksum(cmd) => {
                     match str::from_utf8(cmd.payload) {
                         Ok(p) => {
@@ -81,14 +139,17 @@ pub async fn stream_handler<S: Sink<Frame> + Unpin>(mut stream: impl Stream<Item
 
                     Ok(())
                 }
+
                 Frames::Stat(cmd) => {
                     sink.send(make_error(cmd.header.stream_id, cmd.header.frame_id, "Not implemented".into())).await.expect("stream_handler: could not send response");
                     Ok(())
                 }
+
                 Frames::List(cmd) => {
                     sink.send(make_error(cmd.header.stream_id, cmd.header.frame_id, "Not implemented".into())).await.expect("stream_handler: could not send response");
                     Ok(())
                 }
+
                 _ => {Err(anyhow!("Illegal initial frame reached stream_handler"))}
             }
         }
