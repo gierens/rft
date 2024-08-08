@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use clap::Parser;
 
 mod wire;
+mod conn_h;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
