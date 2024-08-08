@@ -3,7 +3,7 @@ use std::{fs, str};
 use std::fmt::Debug;
 use std::io::{Read, Write, BufReader};
 use anyhow::{Result, anyhow};
-use bytes::{Bytes};
+use bytes::{Bytes, BytesMut};
 use crate::wire::{AckFrame, AnswerFrame, AnswerHeader, ErrorFrame, ErrorHeader, Frame, Frames};
 use crate::wire::Frames::{Answer};
 
@@ -28,13 +28,17 @@ fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
 }
 
 fn make_error (stream_id: u16, frame_id: u32, msg: String) -> Frame {
-    //TODO: Payload length field??
+    let bytes_msg = Bytes::from(msg);
+    let payload_len_be_bytes: &[u8] = &(bytes_msg.len() as u16).to_be_bytes();
+    let mut payload_m = BytesMut::from(payload_len_be_bytes);
+    payload_m.extend(bytes_msg);
+    let payload: Bytes = payload_m.into();
     ErrorFrame { header: &ErrorHeader {
         typ: 5,
         stream_id,
         frame_id: frame_id + 1,
         command_frame_id: frame_id,
-    }, payload: &Bytes::from(msg)
+    }, payload: &payload
     }.into()
 }
 
@@ -157,9 +161,10 @@ pub async fn stream_handler<S: Sink<Frame> + Unpin>(mut stream: impl Stream<Item
 }
 
 mod tests {
+    use std::str::from_utf8;
     use futures::channel::mpsc::{channel, Receiver, Sender};
     use crate::wire::{ChecksumFrame, ChecksumHeader};
-    use crate::wire::Frames::Checksum;
+    use crate::wire::Frames::{Checksum, Error};
     use data_encoding::HEXLOWER;
     #[allow(unused_imports)]
     use super::*;
@@ -212,6 +217,47 @@ mod tests {
             }
 
             fs::remove_file(path).unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_error() {
+        let path = "testfile.txt";
+        //let mut out = File::create(path).unwrap();
+        //write!(out, "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.").unwrap();
+        let payload = Bytes::copy_from_slice(path.as_bytes());
+
+        {
+            let (mut itx, irx): (Sender<Frames>, Receiver<Frames>) = channel(1);
+            let (otx, mut orx): (Sender<Frame>, Receiver<Frame>) = channel(1);
+            itx.send(Checksum(ChecksumFrame {
+                header: &ChecksumHeader {
+                    typ: 69,
+                    stream_id: 420,
+                    frame_id: 1,
+                },
+                payload: &payload
+            })).await.unwrap();
+
+            match stream_handler(irx, otx).await {
+                Ok(()) => {
+                    let f = orx.next().await.unwrap();
+                    let af = f.header();
+
+                    match af {
+                        Error(e) => {
+                            let msg_hex = HEXLOWER.encode(e.payload);
+                            let msg = str::from_utf8(e.payload).unwrap();
+                            //error message: "No such file or directory (os error 2)", preceded by "0026" for length 38 (hex 0x26) in big endian
+                            assert_eq!(msg_hex, "00264e6f20737563682066696c65206f72206469726563746f727920286f73206572726f72203229");
+                        }
+                        _ => { assert!(false) }
+                    }
+                }
+                Err(_) => {
+                    assert!(false);
+                }
+            }
         }
     }
 }
