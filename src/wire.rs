@@ -946,7 +946,7 @@ mod tests {
         let packet = Packet::new(packet_header);
         assert_eq!(
             packet.assemble(),
-            Bytes::from_static(&[1, 2, 0, 0, 0, 3, 4, 5])
+            Bytes::from_static(&[1, 2, 0, 0, 0, 0xde, 0xce, 0x17])
         );
     }
 }
