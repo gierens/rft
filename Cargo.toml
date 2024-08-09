@@ -17,3 +17,4 @@ futures = "0.3"
 data-encoding = "2.6"
 ring = "0.17"
 tokio = {version = "1.39", features = ["macros", "rt", "time"] }
+rand = "0.8"
