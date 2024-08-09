@@ -72,8 +72,18 @@ pub struct DataHeader {
     pub typ: u8,
     pub stream_id: u16,
     pub frame_id: u32,
-    pub offset: [u8; 3],
-    pub length: [u8; 3],
+    pub offset: [u16; 3],
+    pub length: [u16; 3],
+}
+
+impl DataHeader {
+    pub fn offset(&self) -> u64 {
+        self.offset[0] as u64 | (self.offset[1] as u64) << 16 | (self.offset[2] as u64) << 32
+    }
+
+    pub fn length(&self) -> u64 {
+        self.length[0] as u64 | (self.length[1] as u64) << 16 | (self.length[2] as u64) << 32
+    }
 }
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
@@ -83,9 +93,19 @@ pub struct ReadHeader {
     pub stream_id: u16,
     pub frame_id: u32,
     pub flags: u8,
-    pub offset: [u8; 3],
-    pub length: [u8; 3],
+    pub offset: [u16; 3],
+    pub length: [u16; 3],
     pub checksum: u32,
+}
+
+impl ReadHeader {
+    pub fn offset(&self) -> u64 {
+        self.offset[0] as u64 | (self.offset[1] as u64) << 16 | (self.offset[2] as u64) << 32
+    }
+
+    pub fn length(&self) -> u64 {
+        self.length[0] as u64 | (self.length[1] as u64) << 16 | (self.length[2] as u64) << 32
+    }
 }
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
@@ -94,8 +114,18 @@ pub struct WriteHeader {
     pub typ: u8,
     pub stream_id: u16,
     pub frame_id: u32,
-    pub offset: [u8; 3],
-    pub length: [u8; 3],
+    pub offset: [u16; 3],
+    pub length: [u16; 3],
+}
+
+impl WriteHeader {
+    pub fn offset(&self) -> u64 {
+        self.offset[0] as u64 | (self.offset[1] as u64) << 16 | (self.offset[2] as u64) << 32
+    }
+
+    pub fn length(&self) -> u64 {
+        self.length[0] as u64 | (self.length[1] as u64) << 16 | (self.length[2] as u64) << 32
+    }
 }
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
