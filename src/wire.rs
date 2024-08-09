@@ -66,23 +66,29 @@ pub struct ErrorHeader {
     pub command_frame_id: u32,
 }
 
+fn six_u8_to_u64(array: &[u8; 6]) -> u64 {
+    let mut result: [u8; 8] = [0; 8];
+    result[2..].copy_from_slice(array);
+    u64::from_be_bytes(result)
+}
+
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
 pub struct DataHeader {
     pub typ: u8,
     pub stream_id: u16,
     pub frame_id: u32,
-    pub offset: [u16; 3],
-    pub length: [u16; 3],
+    pub offset: [u8; 6],
+    pub length: [u8; 6],
 }
 
 impl DataHeader {
     pub fn offset(&self) -> u64 {
-        self.offset[0] as u64 | (self.offset[1] as u64) << 16 | (self.offset[2] as u64) << 32
+        six_u8_to_u64(&self.offset)
     }
 
     pub fn length(&self) -> u64 {
-        self.length[0] as u64 | (self.length[1] as u64) << 16 | (self.length[2] as u64) << 32
+        six_u8_to_u64(&self.length)
     }
 }
 
@@ -93,18 +99,18 @@ pub struct ReadHeader {
     pub stream_id: u16,
     pub frame_id: u32,
     pub flags: u8,
-    pub offset: [u16; 3],
-    pub length: [u16; 3],
+    pub offset: [u8; 6],
+    pub length: [u8; 6],
     pub checksum: u32,
 }
 
 impl ReadHeader {
     pub fn offset(&self) -> u64 {
-        self.offset[0] as u64 | (self.offset[1] as u64) << 16 | (self.offset[2] as u64) << 32
+        six_u8_to_u64(&self.offset)
     }
 
     pub fn length(&self) -> u64 {
-        self.length[0] as u64 | (self.length[1] as u64) << 16 | (self.length[2] as u64) << 32
+        six_u8_to_u64(&self.length)
     }
 }
 
@@ -114,17 +120,17 @@ pub struct WriteHeader {
     pub typ: u8,
     pub stream_id: u16,
     pub frame_id: u32,
-    pub offset: [u16; 3],
-    pub length: [u16; 3],
+    pub offset: [u8; 6],
+    pub length: [u8; 6],
 }
 
 impl WriteHeader {
     pub fn offset(&self) -> u64 {
-        self.offset[0] as u64 | (self.offset[1] as u64) << 16 | (self.offset[2] as u64) << 32
+        six_u8_to_u64(&self.offset)
     }
 
     pub fn length(&self) -> u64 {
-        self.length[0] as u64 | (self.length[1] as u64) << 16 | (self.length[2] as u64) << 32
+        six_u8_to_u64(&self.length)
     }
 }
 
