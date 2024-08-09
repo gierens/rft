@@ -3,7 +3,9 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
+mod client;
 mod conn_h;
+mod server;
 mod wire;
 
 #[derive(Parser)]
@@ -56,5 +58,13 @@ struct Cli {
 // - consider splitting wire module into multiple modules
 
 fn main() {
-    let _args = Cli::parse();
+    let args = Cli::parse();
+
+    if args.server {
+        let server = server::Server::new(args.port);
+        server.run();
+    } else {
+        let client = client::Client::new();
+        client.run(args.host.unwrap(), args.port, args.files.unwrap());
+    }
 }
