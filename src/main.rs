@@ -9,6 +9,10 @@ mod loss_simulation;
 mod server;
 mod wire;
 
+use client::Client;
+use loss_simulation::LossSimulation;
+use server::Server;
+
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
@@ -61,11 +65,10 @@ struct Cli {
 fn main() {
     let args = Cli::parse();
 
+    let loss_sim = LossSimulation::from_options(args.p, args.q);
     if args.server {
-        let server = server::Server::new(args.port);
-        server.run();
+        Server::new(args.port, loss_sim).run();
     } else {
-        let client = client::Client::new();
-        client.run(args.host.unwrap(), args.port, args.files.unwrap());
+        Client::new(loss_sim).run(args.host.unwrap(), args.port, args.files.unwrap());
     }
 }
