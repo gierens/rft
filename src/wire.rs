@@ -253,6 +253,9 @@ impl<'a> Frame {
             6 => Frames::Data(self.into()),
             7 => Frames::Read(self.into()),
             8 => Frames::Write(self.into()),
+            9 => Frames::Checksum(self.into()),
+            10 => Frames::Stat(self.into()),
+            11 => Frames::List(self.into()),
             _ => panic!("Unknown frame type"),
         }
     }
