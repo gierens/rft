@@ -931,12 +931,30 @@ impl<'a> Parse for ListFrame<'a> {
     }
 }
 
+#[cfg(test)]
 mod tests {
     #[allow(unused_imports)]
     use super::*;
+    use bytes::BytesMut;
 
     #[test]
-    fn assemble_empty_packet() {
+    fn test_six_u8_to_u64() {
+        let array: [u8; 6] = [1, 2, 3, 4, 5, 6];
+        assert_eq!(six_u8_to_u64(&array), 0x010203040506);
+    }
+
+    #[test]
+    fn test_packet_header_checksum() {
+        let header = PacketHeader {
+            version: 1,
+            connection_id: 1,
+            checksum: [0x1, 0x2, 0x3],
+        };
+        assert_eq!(header.checksum(), 0x030201);
+    }
+
+    #[test]
+    fn test_assemble_empty_packet() {
         let packet_header = PacketHeader {
             version: 1,
             connection_id: 2,
@@ -950,7 +968,28 @@ mod tests {
     }
 
     #[test]
-    fn assemble_and_parse_packet() {
+    fn test_packet_assemble() {
+        let header = PacketHeader {
+            version: 1,
+            connection_id: 420,
+            checksum: [0, 0, 0],
+        };
+        let mut packet = Packet::new(header);
+        let frame = Frame::from(AckFrame {
+            typ: 0,
+            stream_id: 1,
+            frame_id: 1,
+        });
+        packet.add_frame(frame);
+        let assembled = packet.assemble();
+        assert_eq!(
+            assembled.len(),
+            size_of::<PacketHeader>() + size_of::<AckFrame>()
+        );
+    }
+
+    #[test]
+    fn test_assemble_and_parse_packet() {
         let packet_header = PacketHeader {
             version: 1,
             connection_id: 1,
