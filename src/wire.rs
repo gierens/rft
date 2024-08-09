@@ -151,8 +151,26 @@ impl Packet {
         }
     }
 
+    fn validate_checksum(bytes: &Bytes) -> bool {
+        let header = PacketHeader::ref_from(&bytes[0..size_of::<PacketHeader>()])
+            .expect("Failed to reference PacketHeader");
+        let expected = header.checksum();
+        // TODO the hasher should be cached somewhere outside of the Packet
+        let mut hasher = crc32fast::Hasher::new();
+        hasher.reset();
+        hasher.update(&bytes[0..=4]);
+        hasher.update(&[0; 3]);
+        hasher.update(&bytes[8..]);
+        let actual = hasher.finalize() & 0x00FFFFFF;
+        expected == actual
+    }
+
     pub fn parse(bytes: Bytes) -> Result<Self, anyhow::Error> {
         // TODO bounds check
+        if !Self::validate_checksum(&bytes) {
+            return Err(anyhow!("Checksum validation failed"));
+        }
+        let bytes = Bytes::from(bytes);
         let mut header_bytes = bytes;
         let mut frame_bytes = header_bytes.split_off(size_of::<PacketHeader>());
         let mut packet = Packet {
