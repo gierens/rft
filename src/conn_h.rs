@@ -67,7 +67,7 @@ pub async fn stream_handler<S: Sink<Frame> + Unpin>(mut stream: impl Stream<Item
                     let mut file: File;
                     match
                     {
-                        if cmd.header.offset == [0, 0, 0] {
+                        if cmd.header.offset() == 0 {
                             File::create(path)
                         } else {
                             File::open(path)
@@ -88,7 +88,7 @@ pub async fn stream_handler<S: Sink<Frame> + Unpin>(mut stream: impl Stream<Item
                         let next_frame = stream.next().await;
                         if let Some(Frames::Data(f)) = next_frame {
                             //empty data frame marks end of transmission
-                            if f.header.length == [0,0,0] { break; }
+                            if f.header.length() == 0 { break; }
 
                             //TODO: write / append f.payload to file
 
