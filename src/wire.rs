@@ -949,4 +949,38 @@ mod tests {
             Bytes::from_static(&[1, 2, 0, 0, 0, 0xde, 0xce, 0x17])
         );
     }
+
+    #[test]
+    fn assemble_and_parse_packet() {
+        let packet_header = PacketHeader {
+            version: 1,
+            connection_id: 1,
+            checksum: [0x3a, 0x9c, 0x4b],
+        };
+        let mut packet1 = Packet::new(packet_header);
+        packet1.add_frame(
+            AckFrame {
+                typ: 0,
+                frame_id: 1,
+                stream_id: 1,
+            }
+            .into(),
+        );
+        packet1.add_frame(
+            AnswerFrameNew {
+                header: &AnswerHeader {
+                    typ: 4,
+                    stream_id: 1,
+                    frame_id: 2,
+                    command_frame_id: 3,
+                },
+                payload: bytes::Bytes::from(vec![1, 2, 3, 4, 5, 6, 7, 8]),
+            }
+            .into(),
+        );
+        let bytes1 = packet1.assemble();
+        let packet2 = Packet::parse(bytes1.clone().into()).expect("Parsing failed");
+        let bytes2 = packet2.assemble();
+        assert_eq!(bytes1, bytes2);
+    }
 }

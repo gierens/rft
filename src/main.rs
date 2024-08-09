@@ -57,37 +57,4 @@ struct Cli {
 
 fn main() {
     let _args = Cli::parse();
-
-    let packet_header = wire::PacketHeader {
-        version: 1,
-        connection_id: 1,
-        checksum: [0x3a, 0x9c, 0x4b],
-    };
-    let mut packet = wire::Packet::new(packet_header);
-    packet.add_frame(
-        wire::AckFrame {
-            typ: 0,
-            frame_id: 1,
-            stream_id: 1,
-        }
-        .into(),
-    );
-    packet.add_frame(
-        wire::AnswerFrameNew {
-            header: &wire::AnswerHeader {
-                typ: 4,
-                stream_id: 1,
-                frame_id: 2,
-                command_frame_id: 3,
-            },
-            payload: bytes::Bytes::from(vec![1, 2, 3, 4, 5, 6, 7, 8]),
-        }
-        .into(),
-    );
-    // packet.header_mut().version = 2;
-    dbg!(&packet);
-    let bytes = packet.assemble();
-    dbg!(&bytes);
-    let mut packet = wire::Packet::parse(bytes.into()).expect("Parsing failed");
-    dbg!(&packet);
 }
