@@ -254,6 +254,13 @@ impl Packet {
                 bytes.extend_from_slice(&payload_bytes);
             }
         }
+        bytes[5] = 0;
+        bytes[6] = 0;
+        bytes[7] = 0;
+        let checksum = crc32fast::hash(&bytes) & 0x00FFFFFF;
+        bytes[5] = checksum as u8;
+        bytes[6] = (checksum >> 8) as u8;
+        bytes[7] = (checksum >> 16) as u8;
         bytes
     }
 }
