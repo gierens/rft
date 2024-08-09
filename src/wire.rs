@@ -165,6 +165,7 @@ impl Packet {
         expected == actual
     }
 
+    // TODO better error handling
     pub fn parse(bytes: Bytes) -> Result<Self, anyhow::Error> {
         // TODO bounds check
         if !Self::validate_checksum(&bytes) {
