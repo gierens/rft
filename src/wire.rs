@@ -2,8 +2,7 @@ use anyhow::anyhow;
 use bytes::{Bytes, BytesMut};
 use std::fmt::Debug;
 use std::mem::size_of;
-use zerocopy::{AsBytes, FromBytes};
-use zerocopy_derive::{AsBytes, FromBytes, FromZeroes};
+use zerocopy::{AsBytes, FromBytes, FromZeroes};
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
