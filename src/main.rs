@@ -3,8 +3,8 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
-mod wire;
 mod conn_h;
+mod wire;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
