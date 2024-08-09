@@ -50,7 +50,6 @@ struct Cli {
 // - port main to wire::tests
 // - add more tests
 // - add more error handling, particularly the bounds checks
-// - add CRC32 checksum checking and generation (use crc32fast crate)
 // - improve ergonomics of packet crafting and parsing
 // - start on the server and client
 // - reduce boilerplate in wire module with macros
