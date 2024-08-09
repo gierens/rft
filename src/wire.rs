@@ -954,6 +954,19 @@ mod tests {
     }
 
     #[test]
+    fn test_data_header_offset_and_length() {
+        let header = DataHeader {
+            typ: 0,
+            stream_id: 1,
+            frame_id: 2,
+            offset: [1, 2, 3, 4, 5, 6],
+            length: [6, 5, 4, 3, 2, 1],
+        };
+        assert_eq!(header.offset(), 0x0000010203040506);
+        assert_eq!(header.length(), 0x0000060504030201);
+    }
+
+    #[test]
     fn test_assemble_empty_packet() {
         let packet_header = PacketHeader {
             version: 1,
@@ -965,6 +978,33 @@ mod tests {
             packet.assemble(),
             Bytes::from_static(&[1, 2, 0, 0, 0, 0xde, 0xce, 0x17])
         );
+    }
+
+    #[test]
+    fn test_validate_checksum() {
+        let header = PacketHeader {
+            version: 1,
+            connection_id: 420,
+            checksum: [0, 0, 0],
+        };
+        let mut packet = Packet::new(header);
+        let frame = Frame::from(AckFrame {
+            typ: 0,
+            stream_id: 1,
+            frame_id: 1,
+        });
+        packet.add_frame(frame);
+
+        let mut bytes = packet.assemble();
+        bytes[5] = 0;
+        bytes[6] = 0;
+        bytes[7] = 0;
+        let checksum = crc32fast::hash(&bytes) & 0x00FFFFFF;
+        bytes[5] = checksum as u8;
+        bytes[6] = (checksum >> 8) as u8;
+        bytes[7] = (checksum >> 16) as u8;
+        let b = Bytes::from(bytes);
+        assert!(Packet::validate_checksum(&b));
     }
 
     #[test]
