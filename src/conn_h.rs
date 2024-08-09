@@ -100,7 +100,14 @@ pub async fn stream_handler<S: Sink<Frame> + Unpin>(mut stream: impl Stream<Item
 
                         if let Some(Frames::Data(f)) = next_frame {
                             //empty data frame marks end of transmission
-                            if f.header.length() == 0 { break; }
+                            if f.header.length() == 0 {
+                                sink.send(AckFrame{
+                                    typ: 0,
+                                    stream_id: cmd.header.stream_id,
+                                    frame_id: f.header.frame_id,
+                                }.into()).await.expect("stream_handler: could not send ACK");
+                                break;
+                            }
 
                             //check if offset matches
                             if last_offset != f.header.offset() {
@@ -314,8 +321,8 @@ mod tests {
         };
 
         {
-            let (mut itx, irx): (Sender<Frames>, Receiver<Frames>) = channel(1);
-            let (otx, mut orx): (Sender<Frame>, Receiver<Frame>) = channel(1);
+            let (mut itx, irx): (Sender<Frames>, Receiver<Frames>) = channel(3);
+            let (otx, mut orx): (Sender<Frame>, Receiver<Frame>) = channel(3);
             itx.send(Frames::Write(WriteFrame{
                 header: &req_hd,
                 payload: &payload_bytes
