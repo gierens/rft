@@ -23,6 +23,15 @@ impl LossSimulation {
         }
     }
 
+    pub fn from_options(p: Option<f64>, q: Option<f64>) -> Option<Self> {
+        match (p, q) {
+            (Some(p), Some(q)) => Some(Self::new(p, q)),
+            (Some(p), None) => Some(Self::new(p, p)),
+            (None, Some(q)) => Some(Self::new(q, q)),
+            _ => None,
+        }
+    }
+
     pub fn next(&mut self) -> bool {
         let prob = match self.state {
             LossState::NotLost => self.p,
