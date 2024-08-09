@@ -1,0 +1,15 @@
+tests:
+- changed-files:
+  - any-glob-to-any-file: tests/*
+
+dependency:
+- changed-files:
+  - any-glob-to-any-file: Cargo.*
+
+ci:
+- changed-files:
+  - any-glob-to-any-file: .github/**/*
+
+rust:
+- changed-files:
+  - any-glob-to-any-file: src/**/*
