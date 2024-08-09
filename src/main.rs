@@ -5,6 +5,7 @@ use clap::Parser;
 
 mod client;
 mod conn_h;
+mod loss_simulation;
 mod server;
 mod wire;
 
