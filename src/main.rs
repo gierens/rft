@@ -62,7 +62,7 @@ fn main() {
     let packet_header = wire::PacketHeader {
         version: 1,
         connection_id: 1,
-        checksum: [2; 3],
+        checksum: [0x3a, 0x9c, 0x4b],
     };
     let mut packet = wire::Packet::new(packet_header);
     packet.add_frame(
