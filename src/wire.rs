@@ -13,6 +13,12 @@ pub struct PacketHeader {
     pub checksum: [u8; 3],
 }
 
+impl PacketHeader {
+    pub fn checksum(&self) -> u32 {
+        self.checksum[0] as u32 | (self.checksum[1] as u32) << 8 | (self.checksum[2] as u32) << 16
+    }
+}
+
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
 pub struct AckFrame {
