@@ -1,15 +1,17 @@
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use std::{fs, str};
 use std::fmt::Debug;
-use std::io::{Read, Write, BufReader};
+use std::io::{Read, Write, BufReader, BufWriter};
 use anyhow::{Result, anyhow};
 use bytes::{Bytes, BytesMut};
 use crate::wire::{AckFrame, AnswerFrame, AnswerHeader, ErrorFrame, ErrorHeader, Frame, Frames};
 use crate::wire::Frames::{Answer};
+use tokio::time::{timeout};
 
 use ring::digest;
 use ring::digest::{Digest, SHA256};
-use std::fs::File;
+use std::fs::{File, OpenOptions};
+use std::time::Duration;
 
 //from rust cookbook
 fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
@@ -64,15 +66,8 @@ pub async fn stream_handler<S: Sink<Frame> + Unpin>(mut stream: impl Stream<Item
                     }
 
                     //create / open file
-                    let mut file: File;
-                    match
-                    {
-                        if cmd.header.offset() == 0 {
-                            File::create(path)
-                        } else {
-                            File::open(path)
-                        }
-                    }
+                    let file: File;
+                    match OpenOptions::new().write(true).create(true).open(path.clone())
                     {
                         Ok(f) => {file = f}
                         Err(e) => {
@@ -81,20 +76,60 @@ pub async fn stream_handler<S: Sink<Frame> + Unpin>(mut stream: impl Stream<Item
                         }
                     }
 
+                    //check if file size matches write offset
+                    let metadata = fs::metadata(path.clone()).expect("Could not get file metadata");
+                    if metadata.len() != cmd.header.offset() {
+                        sink.send(make_error(cmd.header.stream_id, cmd.header.frame_id, "Write offset does not match file size".into())).await.expect("stream_handler: could not send response");
+                        return Ok(())
+                    }
+
                     //receive Data frames and write to file; stop if transmission complete
+                    let mut writer = BufWriter::new(file);
+                    let mut last_offset = cmd.header.offset();
+                    let mut last_frame_id = cmd.header.frame_id;
                     let mut cum_ack_ctr = 1;
                     loop {
-                        //TODO: add timeout
-                        let next_frame = stream.next().await;
+                        let next_frame = match timeout(Duration::from_secs(5), stream.next()).await {
+                            Ok(f) => {f}
+                            Err(_) => {
+                                //timeout: sed error frame, exit
+                                sink.send(make_error(cmd.header.stream_id, last_frame_id, "Timeout".into())).await.expect("stream_handler: could not send response");
+                                return Ok(())
+                            }
+                        };
+
                         if let Some(Frames::Data(f)) = next_frame {
                             //empty data frame marks end of transmission
                             if f.header.length() == 0 { break; }
 
-                            //TODO: write / append f.payload to file
+                            //check if offset matches
+                            if last_offset != f.header.offset() {
+                                //mismatch -> send double ACK, discard packet
+                                sink.send(AckFrame{
+                                    typ: 0,
+                                    stream_id: cmd.header.stream_id,
+                                    frame_id: last_frame_id,
+                                }.into()).await.expect("stream_handler: could not send ACK");
+
+                                cum_ack_ctr = 0;
+                                continue;
+                            }
+
+                            //write data from frame to file
+                            writer.write(f.payload).expect("Could not write to BufWriter");
+
+                            //update last received frame id and offset
+                            last_frame_id = f.header.frame_id;
+                            last_offset = last_offset + f.header.offset();
 
                             //send ACK
                             cum_ack_ctr += 1;
                             if cum_ack_ctr >= 5 { //TODO: how to determine cumulative ACK interval?
+                                /*
+                                //flush, so that the send ACK actually reports successful write
+                                writer.flush().expect("Could not flush to file");
+                                 */
+
                                 sink.send(AckFrame{
                                     typ: 0,
                                     stream_id: cmd.header.stream_id,
@@ -104,8 +139,8 @@ pub async fn stream_handler<S: Sink<Frame> + Unpin>(mut stream: impl Stream<Item
                                 cum_ack_ctr = 0;
                             }
                         } else {
-                            sink.send(make_error(cmd.header.stream_id, cmd.header.frame_id, "Illegal Frame Received".into())).await.expect("stream_handler: could not send response");
-                            //TODO: what to do here? Delete the File?
+                            //illegal frame or channel closed: abort transmission and leave file so client can continue later
+                            sink.send(make_error(cmd.header.stream_id, 0, "Illegal Frame Received".into())).await.expect("stream_handler: could not send response");
                             return Ok(())
                         }
                     }
@@ -161,10 +196,10 @@ pub async fn stream_handler<S: Sink<Frame> + Unpin>(mut stream: impl Stream<Item
 }
 
 mod tests {
-    use std::str::from_utf8;
     use futures::channel::mpsc::{channel, Receiver, Sender};
-    use crate::wire::{ChecksumFrame, ChecksumHeader};
+    use crate::wire::{ChecksumFrame, ChecksumHeader, WriteFrame, WriteHeader};
     use crate::wire::Frames::{Checksum, Error};
+    use crate::wire::Frames;
     use data_encoding::HEXLOWER;
     #[allow(unused_imports)]
     use super::*;
@@ -181,7 +216,7 @@ mod tests {
             let (otx, mut orx): (Sender<Frame>, Receiver<Frame>) = channel(1);
             itx.send(Checksum(ChecksumFrame {
                 header: &ChecksumHeader {
-                    typ: 69,
+                    typ: 9,
                     stream_id: 420,
                     frame_id: 1,
                 },
@@ -222,7 +257,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_error() {
-        let path = "testfile.txt";
+        let path = "err_testfile.txt";
         //let mut out = File::create(path).unwrap();
         //write!(out, "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.").unwrap();
         let payload = Bytes::copy_from_slice(path.as_bytes());
@@ -232,7 +267,7 @@ mod tests {
             let (otx, mut orx): (Sender<Frame>, Receiver<Frame>) = channel(1);
             itx.send(Checksum(ChecksumFrame {
                 header: &ChecksumHeader {
-                    typ: 69,
+                    typ: 9,
                     stream_id: 420,
                     frame_id: 1,
                 },
@@ -247,7 +282,7 @@ mod tests {
                     match af {
                         Error(e) => {
                             let msg_hex = HEXLOWER.encode(e.payload);
-                            let msg = str::from_utf8(e.payload).unwrap();
+                            //let msg = str::from_utf8(e.payload).unwrap();
                             //error message: "No such file or directory (os error 2)", preceded by "0026" for length 38 (hex 0x26) in big endian
                             assert_eq!(msg_hex, "00264e6f20737563682066696c65206f72206469726563746f727920286f73206572726f72203229");
                         }
@@ -259,5 +294,42 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[tokio::test]
+    async fn test_write_new_file() {
+        let path = "testfile.txt";
+        let payload = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
+        let payload_bytes = Bytes::copy_from_slice(payload.as_bytes());
+
+        let lf_b8: [u8; 8] = u64::to_be_bytes(payload.len() as u64);
+        let lf_b6: [u8; 6] = lf_b8[2..].try_into().unwrap();
+
+        let req_hd: WriteHeader = WriteHeader {
+            typ: 8,
+            stream_id: 420,
+            frame_id: 1,
+            offset: [0,0,0,0,0,0],
+            length: lf_b6,
+        };
+
+        {
+            let (mut itx, irx): (Sender<Frames>, Receiver<Frames>) = channel(1);
+            let (otx, mut orx): (Sender<Frame>, Receiver<Frame>) = channel(1);
+            itx.send(Frames::Write(WriteFrame{
+                header: &req_hd,
+                payload: &payload_bytes
+            })).await.unwrap();
+
+            match stream_handler(irx, otx).await {
+                Ok(()) => {
+                    //unfinished, currently passing because of timeout
+                }
+                Err(_) => {
+                    assert!(false);
+                }
+            }
+        }
+
     }
 }
