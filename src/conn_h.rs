@@ -1,4 +1,6 @@
-use crate::wire::{AckFrame, AnswerFrame, AnswerHeader, ErrorFrame, ErrorHeader, Frame, Frames};
+use crate::wire::{
+    AckFrame, AnswerFrame, AnswerHeader, ErrorFrame, ErrorHeader, Frame, Frames,
+};
 use anyhow::{anyhow, Result};
 use bytes::{Bytes, BytesMut};
 use futures::{Sink, SinkExt, Stream, StreamExt};
@@ -108,7 +110,8 @@ where
                     };
 
                     //check if file size matches write offset
-                    let metadata = fs::metadata(path.clone()).expect("Could not get file metadata");
+                    let metadata = fs::metadata(path.clone())
+                        .expect("Could not get file metadata");
                     if metadata.len() != cmd.header.offset() {
                         sink.send(make_error(
                             cmd.header.stream_id,
@@ -126,7 +129,11 @@ where
                     let mut last_frame_id = cmd.header.frame_id;
                     let mut cum_ack_ctr = 1;
                     loop {
-                        let next_frame = match timeout(Duration::from_secs(5), stream.next()).await
+                        let next_frame = match timeout(
+                            Duration::from_secs(5),
+                            stream.next(),
+                        )
+                        .await
                         {
                             Ok(f) => f,
                             Err(_) => {
@@ -137,7 +144,9 @@ where
                                     "Timeout".into(),
                                 ))
                                 .await
-                                .expect("stream_handler: could not send response");
+                                .expect(
+                                    "stream_handler: could not send response",
+                                );
                                 return Ok(());
                             }
                         };
@@ -224,11 +233,12 @@ where
 
                 Frames::Checksum(cmd) => {
                     match str::from_utf8(cmd.payload) {
-                        Ok(p) => match File::open(p) {
-                            Ok(f) => {
-                                let reader = BufReader::new(f);
-                                let digest = sha256_digest(reader)?;
-                                sink.send(
+                        Ok(p) => {
+                            match File::open(p) {
+                                Ok(f) => {
+                                    let reader = BufReader::new(f);
+                                    let digest = sha256_digest(reader)?;
+                                    sink.send(
                                     AnswerFrame {
                                         header: &AnswerHeader {
                                             typ: 4,
@@ -242,18 +252,19 @@ where
                                 )
                                 .await
                                 .expect("stream_handler: could not send response");
-                            }
-                            Err(e) => {
-                                sink.send(make_error(
+                                }
+                                Err(e) => {
+                                    sink.send(make_error(
                                     cmd.header.stream_id,
                                     cmd.header.frame_id,
                                     e.to_string(),
                                 ))
                                 .await
                                 .expect("stream_handler: could not send response");
-                                return Ok(());
+                                    return Ok(());
+                                }
                             }
-                        },
+                        }
                         Err(_) => {
                             sink.send(make_error(
                                 cmd.header.stream_id,
@@ -291,7 +302,9 @@ where
                     Ok(())
                 }
 
-                _ => Err(anyhow!("Illegal initial frame reached stream_handler")),
+                _ => {
+                    Err(anyhow!("Illegal initial frame reached stream_handler"))
+                }
             }
         }
     }
