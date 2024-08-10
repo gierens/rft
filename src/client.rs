@@ -13,8 +13,7 @@ impl Client {
     }
 
     pub fn run(&self, host: Ipv4Addr, port: u16, _files: Vec<PathBuf>) {
-        let socket =
-            UdpSocket::bind("0.0.0.0:0").expect("Failed to bind socket");
+        let socket = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind socket");
         socket
             .connect(SocketAddrV4::new(host, port))
             .expect("Failed to connect to server");

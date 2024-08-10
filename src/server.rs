@@ -14,11 +14,8 @@ impl Server {
     }
 
     pub fn run(&self) {
-        let socket = UdpSocket::bind(SocketAddrV4::new(
-            Ipv4Addr::new(0, 0, 0, 0),
-            self.port,
-        ))
-        .expect("Failed to bind socket");
+        let socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), self.port))
+            .expect("Failed to bind socket");
         dbg!(&socket);
         let mut buf = [0; 1024];
         loop {

@@ -26,10 +26,7 @@ struct Cli {
     )]
     server: bool,
 
-    #[arg(
-        help = "IP address of the server",
-        required_unless_present = "server"
-    )]
+    #[arg(help = "IP address of the server", required_unless_present = "server")]
     host: Option<Ipv4Addr>,
 
     #[arg(
