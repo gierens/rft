@@ -5,10 +5,10 @@ use crate::wire::{
 use anyhow::{anyhow, Result};
 use bytes::{Bytes, BytesMut};
 use futures::{Sink, SinkExt, Stream, StreamExt};
+use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::{fs, str};
-use std::cmp::Ordering;
 use tokio::time::timeout;
 
 use ring::digest;
@@ -158,11 +158,11 @@ where
                                     match af_frame_id.cmp(&last_ackd_frame) {
                                         Ordering::Greater => {
                                             //new ACK: advance last ack'd frame id and offset
-                                            last_ackd_offset = cum_ack_offset_ringbuf[(((ringbuf_head
-                                                + cum_ack_interval)
-                                                - (af.frame_id - frame_number))
-                                                % cum_ack_interval)
-                                                as usize];
+                                            last_ackd_offset = cum_ack_offset_ringbuf
+                                                [(((ringbuf_head + cum_ack_interval)
+                                                    - (af.frame_id - frame_number))
+                                                    % cum_ack_interval)
+                                                    as usize];
                                             last_ackd_frame = af.frame_id;
                                         }
                                         Ordering::Equal => {
@@ -180,8 +180,8 @@ where
                                                 last_ackd_frame,
                                                 "ACK'd frame number inconsistency".into(),
                                             ))
-                                                .await
-                                                .expect("stream_handler: could not send response");
+                                            .await
+                                            .expect("stream_handler: could not send response");
                                             return Ok(());
                                         }
                                     }
