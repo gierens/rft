@@ -26,7 +26,10 @@ struct Cli {
     )]
     server: bool,
 
-    #[arg(help = "IP address of the server", required_unless_present = "server")]
+    #[arg(
+        help = "IP address of the server",
+        required_unless_present = "server"
+    )]
     host: Option<IpAddr>,
 
     #[arg(
@@ -43,7 +46,10 @@ struct Cli {
     )]
     p: Option<f64>,
 
-    #[arg(short, help = "Markov probability that packet lost after lost packet.")]
+    #[arg(
+        short,
+        help = "Markov probability that packet lost after lost packet."
+    )]
     q: Option<f64>,
 
     #[arg(
@@ -69,6 +75,10 @@ fn main() {
     if args.server {
         Server::new(args.port, loss_sim).run();
     } else {
-        Client::new(loss_sim).run(args.host.unwrap(), args.port, args.files.unwrap());
+        Client::new(loss_sim).run(
+            args.host.unwrap(),
+            args.port,
+            args.files.unwrap(),
+        );
     }
 }
