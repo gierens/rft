@@ -13,6 +13,7 @@ pub struct PacketHeader {
 }
 
 impl PacketHeader {
+    #[allow(dead_code)]
     pub fn checksum(&self) -> u32 {
         self.checksum[0] as u32
             | (self.checksum[1] as u32) << 8
@@ -159,6 +160,7 @@ pub struct ListHeader {
     pub frame_id: u32,
 }
 
+#[allow(dead_code)]
 trait Parse {
     fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error>
     where
@@ -179,6 +181,7 @@ impl Debug for Packet {
     }
 }
 
+#[allow(dead_code)]
 impl Packet {
     pub fn new(header: PacketHeader) -> Self {
         let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
