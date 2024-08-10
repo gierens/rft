@@ -206,7 +206,6 @@ impl Packet {
         if !Self::validate_checksum(&bytes) {
             return Err(anyhow!("Checksum validation failed"));
         }
-        let bytes = Bytes::from(bytes);
         let mut header_bytes = bytes;
         let mut frame_bytes = header_bytes.split_off(size_of::<PacketHeader>());
         let mut packet = Packet {
@@ -250,7 +249,7 @@ impl Packet {
             if let Some(payload_bytes) = &frame.payload_bytes {
                 let payload_length = payload_bytes.len() as u16;
                 bytes.extend_from_slice(&payload_length.to_le_bytes());
-                bytes.extend_from_slice(&payload_bytes);
+                bytes.extend_from_slice(payload_bytes);
             }
         }
         bytes[5] = 0;
@@ -933,9 +932,7 @@ impl<'a> Parse for ListFrame<'a> {
 
 #[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]
     use super::*;
-    use bytes::BytesMut;
 
     #[test]
     fn test_six_u8_to_u64() {
