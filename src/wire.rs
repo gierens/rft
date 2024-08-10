@@ -4,6 +4,8 @@ use std::fmt::Debug;
 use std::mem::size_of;
 use zerocopy::{AsBytes, FromBytes, FromZeroes};
 
+const VERSION: u8 = 1;
+
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
 pub struct PacketHeader {
