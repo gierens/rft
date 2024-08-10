@@ -121,11 +121,16 @@ where
                     }
 
                     //send ACK for command
-                    sink.send(AckFrame {
-                        typ: 0,
-                        stream_id: cmd.header.stream_id,
-                        frame_id: cmd.header.frame_id,
-                    }.into(),).await.expect("stream_handler: could not send response");
+                    sink.send(
+                        AckFrame {
+                            typ: 0,
+                            stream_id: cmd.header.stream_id,
+                            frame_id: cmd.header.frame_id,
+                        }
+                        .into(),
+                    )
+                    .await
+                    .expect("stream_handler: could not send response");
 
                     //receive Data frames and write to file; stop if transmission complete
                     let mut writer = BufWriter::new(file);
@@ -308,7 +313,9 @@ where
 mod tests {
     use super::*;
     use crate::wire::Frames::{Checksum, Error};
-    use crate::wire::{ChecksumFrame, ChecksumHeader, DataFrame, DataHeader, WriteFrame, WriteHeader};
+    use crate::wire::{
+        ChecksumFrame, ChecksumHeader, DataFrame, DataHeader, WriteFrame, WriteHeader,
+    };
     use crate::wire::{Frames, Frames::Answer};
     use data_encoding::HEXLOWER;
     use futures::channel::mpsc::{channel, Receiver, Sender};
@@ -449,7 +456,7 @@ mod tests {
             typ: 6,
             stream_id: req_hd.stream_id,
             frame_id: 2,
-            offset: [0,0,0,0,0,0],
+            offset: [0, 0, 0, 0, 0, 0],
             length: lfd1_b6,
         };
 
@@ -457,7 +464,7 @@ mod tests {
             typ: 6,
             stream_id: req_hd.stream_id,
             frame_id: 3,
-            offset: [0,0,0,0,0,128],
+            offset: [0, 0, 0, 0, 0, 128],
             length: lfd2_b6,
         };
 
@@ -465,8 +472,8 @@ mod tests {
             typ: 6,
             stream_id: req_hd.stream_id,
             frame_id: 4,
-            offset: [0,0,0,0,1,78],
-            length: [0,0,0,0,0,0],
+            offset: [0, 0, 0, 0, 1, 78],
+            length: [0, 0, 0, 0, 0, 0],
         };
 
         {
@@ -484,19 +491,25 @@ mod tests {
             //send data frames
             itx.send(Frames::Data(DataFrame {
                 header: &data1_hdr,
-                payload: &dp1_bytes
-            })).await.unwrap();
+                payload: &dp1_bytes,
+            }))
+            .await
+            .unwrap();
 
             itx.send(Frames::Data(DataFrame {
                 header: &data2_hdr,
-                payload: &dp2_bytes
-            })).await.unwrap();
+                payload: &dp2_bytes,
+            }))
+            .await
+            .unwrap();
 
             //send EOF frame
             itx.send(Frames::Data(DataFrame {
                 header: &data3_hdr,
-                payload: &dp3_bytes
-            })).await.unwrap();
+                payload: &dp3_bytes,
+            }))
+            .await
+            .unwrap();
 
             //run handler and test whether 3x ACK received and file written
             match stream_handler(irx, otx).await {
@@ -558,7 +571,6 @@ mod tests {
                     //check file
                     let file_str = fs::read_to_string(path).unwrap();
                     assert_eq!(file_str, payload);
-
                 }
                 Err(_) => {
                     assert!(false);
