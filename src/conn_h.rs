@@ -120,11 +120,18 @@ where
                         return Ok(());
                     }
 
+                    //send ACK for command
+                    sink.send(AckFrame {
+                        typ: 0,
+                        stream_id: cmd.header.stream_id,
+                        frame_id: cmd.header.frame_id,
+                    }.into()).await.expect("stream_handler: could not send response".into());
+
                     //receive Data frames and write to file; stop if transmission complete
                     let mut writer = BufWriter::new(file);
                     let mut last_offset = cmd.header.offset();
                     let mut last_frame_id = cmd.header.frame_id;
-                    let mut cum_ack_ctr = 1;
+                    let mut cum_ack_ctr = 0;
                     loop {
                         let next_frame = match timeout(Duration::from_secs(5), stream.next()).await
                         {
@@ -183,12 +190,12 @@ where
 
                             //update last received frame id and offset
                             last_frame_id = f.header.frame_id;
-                            last_offset += f.header.offset();
+                            last_offset += f.header.length();
 
                             //send ACK
                             cum_ack_ctr += 1;
-                            if cum_ack_ctr >= 5 {
-                                //TODO: how to determine cumulative ACK interval?
+                            if cum_ack_ctr >= 2 {
+                                //TODO: how to determine cumulative ACK interval?   (caution: dependency in tests)
                                 /*
                                 //flush, so that the send ACK actually reports successful write
                                 writer.flush().expect("Could not flush to file");
@@ -301,7 +308,7 @@ where
 mod tests {
     use super::*;
     use crate::wire::Frames::{Checksum, Error};
-    use crate::wire::{ChecksumFrame, ChecksumHeader, WriteFrame, WriteHeader};
+    use crate::wire::{ChecksumFrame, ChecksumHeader, DataFrame, DataHeader, WriteFrame, WriteHeader};
     use crate::wire::{Frames, Frames::Answer};
     use data_encoding::HEXLOWER;
     use futures::channel::mpsc::{channel, Receiver, Sender};
@@ -411,39 +418,154 @@ mod tests {
 
     #[tokio::test]
     async fn test_write_new_file() {
-        let _path = "testfile.txt";
-        let payload = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
-        let payload_bytes = Bytes::copy_from_slice(payload.as_bytes());
+        //name and contents of file to write
+        let path = "twnf_testfile.txt";
+        let payload = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.";
 
-        let lf_b8: [u8; 8] = u64::to_be_bytes(payload.len() as u64);
-        let lf_b6: [u8; 6] = lf_b8[2..].try_into().unwrap();
+        //prepare headers and data for frames to be sent
+        let path_bytes = Bytes::copy_from_slice(path.as_bytes());
+        let lfh_b8: [u8; 8] = u64::to_be_bytes(path_bytes.len() as u64);
+        let lfh_b6: [u8; 6] = lfh_b8[2..].try_into().unwrap();
+
+        let dp1_bytes = Bytes::copy_from_slice(&payload.as_bytes()[..128]);
+        let lfd1_b8: [u8; 8] = u64::to_be_bytes(dp1_bytes.len() as u64);
+        let lfd1_b6: [u8; 6] = lfd1_b8[2..].try_into().unwrap();
+
+        let dp2_bytes = Bytes::copy_from_slice(&payload.as_bytes()[128..]);
+        let lfd2_b8: [u8; 8] = u64::to_be_bytes(dp2_bytes.len() as u64);
+        let lfd2_b6: [u8; 6] = lfd2_b8[2..].try_into().unwrap();
+
+        let dp3_bytes = Bytes::default();
 
         let req_hd: WriteHeader = WriteHeader {
             typ: 8,
             stream_id: 420,
             frame_id: 1,
             offset: [0, 0, 0, 0, 0, 0],
-            length: lf_b6,
+            length: lfh_b6,
+        };
+
+        let data1_hdr: DataHeader = DataHeader {
+            typ: 6,
+            stream_id: req_hd.stream_id,
+            frame_id: 2,
+            offset: [0,0,0,0,0,0],
+            length: lfd1_b6,
+        };
+
+        let data2_hdr: DataHeader = DataHeader {
+            typ: 6,
+            stream_id: req_hd.stream_id,
+            frame_id: 3,
+            offset: [0,0,0,0,0,128],
+            length: lfd2_b6,
+        };
+
+        let data3_hdr: DataHeader = DataHeader {
+            typ: 6,
+            stream_id: req_hd.stream_id,
+            frame_id: 4,
+            offset: [0,0,0,0,1,78],
+            length: [0,0,0,0,0,0],
         };
 
         {
-            let (mut itx, irx): (Sender<Frames>, Receiver<Frames>) = channel(3);
-            let (otx, mut _orx): (Sender<Frame>, Receiver<Frame>) = channel(3);
+            let (mut itx, irx): (Sender<Frames>, Receiver<Frames>) = channel(5);
+            let (otx, mut orx): (Sender<Frame>, Receiver<Frame>) = channel(5);
+
+            //send command frame
             itx.send(Frames::Write(WriteFrame {
                 header: &req_hd,
-                payload: &payload_bytes,
+                payload: &path_bytes,
             }))
             .await
             .unwrap();
 
+            //send data frames
+            itx.send(Frames::Data(DataFrame {
+                header: &data1_hdr,
+                payload: &dp1_bytes
+            })).await.unwrap();
+
+            itx.send(Frames::Data(DataFrame {
+                header: &data2_hdr,
+                payload: &dp2_bytes
+            })).await.unwrap();
+
+            //send EOF frame
+            itx.send(Frames::Data(DataFrame {
+                header: &data3_hdr,
+                payload: &dp3_bytes
+            })).await.unwrap();
+
+            //run handler and test whether 3x ACK received and file written
             match stream_handler(irx, otx).await {
                 Ok(()) => {
-                    //unfinished, currently passing because of timeout
+                    let f1 = orx.next().await.unwrap();
+                    let fh1 = f1.header();
+
+                    match fh1 {
+                        Frames::Ack(a) => {
+                            let afid = a.frame_id;
+                            let reqfid = req_hd.frame_id;
+                            assert_eq!(afid, reqfid);
+
+                            let asid = a.stream_id;
+                            let reqsid = req_hd.stream_id;
+                            assert_eq!(asid, reqsid);
+                        }
+                        _ => {
+                            assert!(false)
+                        }
+                    }
+
+                    let f2 = orx.next().await.unwrap();
+                    let fh2 = f2.header();
+
+                    match fh2 {
+                        Frames::Ack(a) => {
+                            let afid = a.frame_id;
+                            let dt2fid = data2_hdr.frame_id;
+                            assert_eq!(afid, dt2fid);
+
+                            let asid = a.stream_id;
+                            let reqsid = req_hd.stream_id;
+                            assert_eq!(asid, reqsid);
+                        }
+                        _ => {
+                            assert!(false)
+                        }
+                    }
+
+                    let f3 = orx.next().await.unwrap();
+                    let fh3 = f3.header();
+
+                    match fh3 {
+                        Frames::Ack(a) => {
+                            let afid = a.frame_id;
+                            let dt3fid = data3_hdr.frame_id;
+                            assert_eq!(afid, dt3fid);
+
+                            let asid = a.stream_id;
+                            let reqsid = req_hd.stream_id;
+                            assert_eq!(asid, reqsid);
+                        }
+                        _ => {
+                            assert!(false)
+                        }
+                    }
+
+                    //check file
+                    let file_str = fs::read_to_string(path).unwrap();
+                    assert_eq!(file_str, payload);
+
                 }
                 Err(_) => {
                     assert!(false);
                 }
             }
+
+            fs::remove_file(path).unwrap();
         }
     }
 }
