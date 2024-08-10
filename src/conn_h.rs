@@ -1,4 +1,3 @@
-use crate::wire::Frames::Answer;
 use crate::wire::{AckFrame, AnswerFrame, AnswerHeader, ErrorFrame, ErrorHeader, Frame, Frames};
 use anyhow::{anyhow, Result};
 use bytes::{Bytes, BytesMut};
@@ -14,6 +13,7 @@ use std::fs::{File, OpenOptions};
 use std::time::Duration;
 
 //from rust cookbook
+#[allow(dead_code)]
 fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
     let mut context = digest::Context::new(&SHA256);
     let mut buffer = [0; 1024];
@@ -29,6 +29,7 @@ fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
     Ok(context.finish())
 }
 
+#[allow(dead_code)]
 fn make_error(stream_id: u16, frame_id: u32, msg: String) -> Frame {
     let bytes_msg = Bytes::from(msg);
     let payload_len_be_bytes: &[u8] = &(bytes_msg.len() as u16).to_be_bytes();
@@ -47,6 +48,7 @@ fn make_error(stream_id: u16, frame_id: u32, msg: String) -> Frame {
     .into()
 }
 
+#[allow(dead_code)]
 pub async fn stream_handler<S: Sink<Frame> + Unpin>(
     mut stream: impl Stream<Item = Frames<'_>> + Unpin,
     mut sink: S,
@@ -71,9 +73,8 @@ where
 
                 Frames::Write(cmd) => {
                     //parse path
-                    let path: String;
-                    match str::from_utf8(cmd.payload) {
-                        Ok(s) => path = s.into(),
+                    let path: String = match str::from_utf8(cmd.payload) {
+                        Ok(s) => s.into(),
                         Err(_) => {
                             sink.send(make_error(
                                 cmd.header.stream_id,
@@ -84,16 +85,16 @@ where
                             .expect("stream_handler: could not send response");
                             return Ok(());
                         }
-                    }
+                    };
 
                     //create / open file
-                    let file: File;
-                    match OpenOptions::new()
+                    let file: File = match OpenOptions::new()
                         .write(true)
                         .create(true)
+                        .truncate(false)
                         .open(path.clone())
                     {
-                        Ok(f) => file = f,
+                        Ok(f) => f,
                         Err(e) => {
                             sink.send(make_error(
                                 cmd.header.stream_id,
@@ -104,7 +105,7 @@ where
                             .expect("stream_handler: could not send response");
                             return Ok(());
                         }
-                    }
+                    };
 
                     //check if file size matches write offset
                     let metadata = fs::metadata(path.clone()).expect("Could not get file metadata");
@@ -177,12 +178,12 @@ where
 
                             //write data from frame to file
                             writer
-                                .write(f.payload)
+                                .write_all(f.payload)
                                 .expect("Could not write to BufWriter");
 
                             //update last received frame id and offset
                             last_frame_id = f.header.frame_id;
-                            last_offset = last_offset + f.header.offset();
+                            last_offset += f.header.offset();
 
                             //send ACK
                             cum_ack_ctr += 1;
@@ -296,12 +297,12 @@ where
     }
 }
 
+#[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]
     use super::*;
-    use crate::wire::Frames;
     use crate::wire::Frames::{Checksum, Error};
     use crate::wire::{ChecksumFrame, ChecksumHeader, WriteFrame, WriteHeader};
+    use crate::wire::{Frames, Frames::Answer};
     use data_encoding::HEXLOWER;
     use futures::channel::mpsc::{channel, Receiver, Sender};
 
@@ -410,7 +411,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_write_new_file() {
-        let path = "testfile.txt";
+        let _path = "testfile.txt";
         let payload = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
         let payload_bytes = Bytes::copy_from_slice(payload.as_bytes());
 
@@ -427,7 +428,7 @@ mod tests {
 
         {
             let (mut itx, irx): (Sender<Frames>, Receiver<Frames>) = channel(3);
-            let (otx, mut orx): (Sender<Frame>, Receiver<Frame>) = channel(3);
+            let (otx, mut _orx): (Sender<Frame>, Receiver<Frame>) = channel(3);
             itx.send(Frames::Write(WriteFrame {
                 header: &req_hd,
                 payload: &payload_bytes,
