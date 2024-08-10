@@ -1,25 +1,22 @@
 use rand::{rngs::ThreadRng, Rng};
 
-#[derive(Debug, PartialEq)]
-enum LossState {
-    NotLost,
-    Lost,
-}
-
+#[allow(dead_code)]
 pub struct LossSimulation {
     rng: ThreadRng,
     p: f64,
     q: f64,
-    state: LossState,
+    /// true with current packet is to be lost
+    state: bool,
 }
 
+#[allow(dead_code)]
 impl LossSimulation {
     pub fn new(p: f64, q: f64) -> Self {
         LossSimulation {
             rng: rand::thread_rng(),
             p,
             q,
-            state: LossState::NotLost,
+            state: false,
         }
     }
 
@@ -33,15 +30,8 @@ impl LossSimulation {
     }
 
     pub fn next(&mut self) -> bool {
-        let prob = match self.state {
-            LossState::NotLost => self.p,
-            LossState::Lost => self.q,
-        };
-        self.state = if self.rng.gen_bool(prob) {
-            LossState::Lost
-        } else {
-            LossState::NotLost
-        };
-        self.state == LossState::Lost
+        let prob = if self.state { self.q } else { self.p };
+        self.state = self.rng.gen_bool(prob);
+        self.state
     }
 }
