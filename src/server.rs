@@ -2,6 +2,7 @@ use crate::loss_simulation::LossSimulation;
 
 pub struct Server {
     port: u16,
+    #[allow(dead_code)]
     loss_sim: Option<LossSimulation>,
 }
 
