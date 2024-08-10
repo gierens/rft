@@ -1061,4 +1061,18 @@ mod tests {
         let bytes2 = packet2.assemble();
         assert_eq!(bytes1, bytes2);
     }
+
+    #[test]
+    fn test_assemble_and_parse_simple_packet() {
+        let packet_header = PacketHeader {
+            version: 1,
+            connection_id: 1,
+            checksum: [0x3a, 0x9c, 0x4b],
+        };
+        let packet1 = Packet::new(packet_header);
+        let bytes1 = packet1.assemble();
+        let packet2 = Packet::parse(bytes1.clone().into()).expect("Parsing failed");
+        let bytes2 = packet2.assemble();
+        assert_eq!(bytes1, bytes2);
+    }
 }
