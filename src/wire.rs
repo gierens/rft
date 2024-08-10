@@ -245,6 +245,10 @@ impl Packet {
         Ok(packet)
     }
 
+    pub fn parse_buf(buf: &[u8]) -> Result<Self, anyhow::Error> {
+        Self::parse(Bytes::copy_from_slice(buf))
+    }
+
     pub fn header(&self) -> &PacketHeader {
         PacketHeader::ref_from(self.header_bytes.as_ref())
             .expect("Failed to reference PacketHeader")
