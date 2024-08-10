@@ -1,4 +1,4 @@
-use std::net::IpAddr;
+use std::net::Ipv4Addr;
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -26,8 +26,11 @@ struct Cli {
     )]
     server: bool,
 
-    #[arg(help = "IP address of the server", required_unless_present = "server")]
-    host: Option<IpAddr>,
+    #[arg(
+        help = "IP address of the server",
+        required_unless_present = "server"
+    )]
+    host: Option<Ipv4Addr>,
 
     #[arg(
         short = 't',
