@@ -189,6 +189,15 @@ impl Packet {
         }
     }
 
+    pub fn create(connection_id: u32) -> Self {
+        let header = PacketHeader {
+            version: VERSION,
+            connection_id,
+            checksum: [0; 3],
+        };
+        Self::new(header)
+    }
+
     fn validate_checksum(bytes: &Bytes) -> bool {
         let header = PacketHeader::ref_from(&bytes[0..size_of::<PacketHeader>()])
             .expect("Failed to reference PacketHeader");
