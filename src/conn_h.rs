@@ -1,4 +1,7 @@
-use crate::wire::{AckFrame, AnswerFrame, AnswerHeader, DataFrame, DataHeader, ErrorFrame, ErrorHeader, Frame, Frames};
+use crate::wire::{
+    AckFrame, AnswerFrame, AnswerHeader, DataFrame, DataHeader, ErrorFrame, ErrorHeader, Frame,
+    Frames,
+};
 use anyhow::{anyhow, Result};
 use bytes::{Bytes, BytesMut};
 use futures::{Sink, SinkExt, Stream, StreamExt};
@@ -76,21 +79,24 @@ where
                                 cmd.header.stream_id,
                                 cmd.header.frame_id,
                                 "Invalid Payload".into(),
-                            )).await.expect("stream_handler: could not send response");
+                            ))
+                            .await
+                            .expect("stream_handler: could not send response");
                             return Ok(());
                         }
                     };
 
                     //open file
-                    let file: File = match OpenOptions::new().read(true).open(path.clone())
-                    {
+                    let file: File = match OpenOptions::new().read(true).open(path.clone()) {
                         Ok(f) => f,
                         Err(e) => {
                             sink.send(make_error(
                                 cmd.header.stream_id,
                                 cmd.header.frame_id,
                                 e.to_string(),
-                            )).await.expect("stream_handler: could not send response");
+                            ))
+                            .await
+                            .expect("stream_handler: could not send response");
                             return Ok(());
                         }
                     };
@@ -109,7 +115,9 @@ where
                                 cmd.header.stream_id,
                                 cmd.header.frame_id,
                                 e.to_string(),
-                            )).await.expect("stream_handler: could not send response");
+                            ))
+                            .await
+                            .expect("stream_handler: could not send response");
                             return Ok(());
                         }
                     }
@@ -120,12 +128,15 @@ where
                             typ: 0,
                             stream_id: cmd.header.stream_id,
                             frame_id: cmd.header.frame_id,
-                        }.into(),
-                    ).await.expect("stream_handler: could not send response");
+                        }
+                        .into(),
+                    )
+                    .await
+                    .expect("stream_handler: could not send response");
 
                     //read data from file and generate data frames
-                    let cum_ack_interval: u32 = 2;   //TODO: how to determine cum. ACK interval?
-                    let mut last_offset = cmd.header.offset();  //the first byte not yet sent
+                    let cum_ack_interval: u32 = 2; //TODO: how to determine cum. ACK interval?
+                    let mut last_offset = cmd.header.offset(); //the first byte not yet sent
                     let mut last_ackd_frame = frame_number;
                     let mut last_ackd_offset = cmd.header.offset(); //the first not yet ACK'd byte
 
@@ -136,19 +147,26 @@ where
                     let mut read_buf = [0u8; 512];
                     loop {
                         //check if we need to wait for ack
-                        if (frame_number - last_ackd_frame >= cum_ack_interval) || last_offset > file_size {
+                        if (frame_number - last_ackd_frame >= cum_ack_interval)
+                            || last_offset > file_size
+                        {
                             //receive or wait for ACK frame
-                            match timeout(Duration::from_secs(5), stream.next()).await
-                            {
+                            match timeout(Duration::from_secs(5), stream.next()).await {
                                 Ok(Some(Frames::Ack(af))) => {
                                     //check if new ack, double ack, or illegal
                                     if af.frame_id > last_ackd_frame {
                                         //advance last ack'd frame id and offset
-                                        last_ackd_offset = cum_ack_offset_ringbuf[(((ringbuf_head + cum_ack_interval) - (af.frame_id - frame_number)) % cum_ack_interval) as usize];
+                                        last_ackd_offset = cum_ack_offset_ringbuf[(((ringbuf_head
+                                            + cum_ack_interval)
+                                            - (af.frame_id - frame_number))
+                                            % cum_ack_interval)
+                                            as usize];
                                         last_ackd_frame = af.frame_id;
                                     } else if af.frame_id == last_ackd_frame {
                                         //rewind reader to last ACK'd offset
-                                        reader.seek(SeekFrom::Start(last_ackd_offset)).expect("file read error");
+                                        reader
+                                            .seek(SeekFrom::Start(last_ackd_offset))
+                                            .expect("file read error");
                                         //rewind frame number
                                         frame_number = last_ackd_frame;
                                     } else {
@@ -156,10 +174,12 @@ where
                                             cmd.header.stream_id,
                                             last_ackd_frame,
                                             "ACK'd frame number inconsistency".into(),
-                                        )).await.expect("stream_handler: could not send response");
+                                        ))
+                                        .await
+                                        .expect("stream_handler: could not send response");
                                         return Ok(());
                                     }
-                                },
+                                }
                                 Err(_) => {
                                     //timeout: send error frame, exit
                                     //TODO: retry x times
@@ -167,7 +187,9 @@ where
                                         cmd.header.stream_id,
                                         last_ackd_frame,
                                         "Timeout".into(),
-                                    )).await.expect("stream_handler: could not send response");
+                                    ))
+                                    .await
+                                    .expect("stream_handler: could not send response");
                                     return Ok(());
                                 }
                                 _ => {
@@ -176,7 +198,9 @@ where
                                         cmd.header.stream_id,
                                         0,
                                         "Illegal Frame Received".into(),
-                                    )).await.expect("stream_handler: could not send response");
+                                    ))
+                                    .await
+                                    .expect("stream_handler: could not send response");
                                     return Ok(());
                                 }
                             };
@@ -184,19 +208,21 @@ where
 
                         //check if we are finished
                         //TODO: is this actually guaranteed to work??
-                        if last_ackd_offset > file_size { break };
+                        if last_ackd_offset > file_size {
+                            break;
+                        };
 
                         //read bytes from file into buf
                         let data_size = reader.read(&mut read_buf).expect("file read error");
                         let data_bytes = Bytes::copy_from_slice(&read_buf[..data_size]);
-                        
+
                         //assemble data frame header
                         let lfd_b8: [u8; 8] = u64::to_be_bytes(data_bytes.len() as u64);
                         let lfd_b6: [u8; 6] = lfd_b8[2..].try_into().unwrap();
-                        
+
                         let offset_b8: [u8; 8] = u64::to_be_bytes(last_offset + (data_size as u64));
                         let offset_b6: [u8; 6] = offset_b8[2..].try_into().unwrap();
-                        
+
                         let data_hdr = DataHeader {
                             typ: 6,
                             stream_id: cmd.header.stream_id,
@@ -204,14 +230,18 @@ where
                             offset: offset_b6,
                             length: lfd_b6,
                         };
-                        
+
                         //assemble and dispatch data frame
                         {
-                            sink.send(DataFrame {
+                            sink.send(
+                                DataFrame {
                                     header: &data_hdr,
-                                    payload: &data_bytes
-                                }.into()
-                            ).await.expect("stream_handler: could not send response");
+                                    payload: &data_bytes,
+                                }
+                                .into(),
+                            )
+                            .await
+                            .expect("stream_handler: could not send response");
                         }
 
                         //update counters
