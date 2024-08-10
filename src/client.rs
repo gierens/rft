@@ -2,6 +2,7 @@ use crate::loss_simulation::LossSimulation;
 use std::{net::IpAddr, path::PathBuf};
 
 pub struct Client {
+    #[allow(dead_code)]
     loss_sim: Option<LossSimulation>,
 }
 
