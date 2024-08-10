@@ -14,7 +14,9 @@ pub struct PacketHeader {
 
 impl PacketHeader {
     pub fn checksum(&self) -> u32 {
-        self.checksum[0] as u32 | (self.checksum[1] as u32) << 8 | (self.checksum[2] as u32) << 16
+        self.checksum[0] as u32
+            | (self.checksum[1] as u32) << 8
+            | (self.checksum[2] as u32) << 16
     }
 }
 
@@ -187,8 +189,9 @@ impl Packet {
     }
 
     fn validate_checksum(bytes: &Bytes) -> bool {
-        let header = PacketHeader::ref_from(&bytes[0..size_of::<PacketHeader>()])
-            .expect("Failed to reference PacketHeader");
+        let header =
+            PacketHeader::ref_from(&bytes[0..size_of::<PacketHeader>()])
+                .expect("Failed to reference PacketHeader");
         let expected = header.checksum();
         // TODO the hasher should be cached somewhere outside of the Packet
         let mut hasher = crc32fast::Hasher::new();
@@ -333,7 +336,8 @@ impl<'a> Frame {
 
 impl<'a> From<&'a Frame> for &'a AckFrame {
     fn from(frame: &'a Frame) -> Self {
-        AckFrame::ref_from(frame.header_bytes.as_ref()).expect("Failed to reference AckFrame")
+        AckFrame::ref_from(frame.header_bytes.as_ref())
+            .expect("Failed to reference AckFrame")
     }
 }
 
@@ -360,7 +364,8 @@ impl Parse for AckFrame {
 
 impl<'a> From<&'a Frame> for &'a ExitFrame {
     fn from(frame: &'a Frame) -> Self {
-        ExitFrame::ref_from(frame.header_bytes.as_ref()).expect("Failed to reference ExitFrame")
+        ExitFrame::ref_from(frame.header_bytes.as_ref())
+            .expect("Failed to reference ExitFrame")
     }
 }
 
@@ -459,7 +464,8 @@ impl<'a> From<&'a Frame> for AnswerFrame<'a> {
 
 impl From<AnswerFrame<'_>> for Frame {
     fn from(frame: AnswerFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload.clone()),
@@ -475,7 +481,8 @@ pub struct AnswerFrameNew<'a> {
 
 impl From<AnswerFrameNew<'_>> for Frame {
     fn from(frame: AnswerFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload),
@@ -488,7 +495,8 @@ impl<'a> Parse for AnswerFrame<'a> {
         // TODO bounds check
         let header_bytes = bytes.split_to(size_of::<AnswerHeader>());
         let length_bytes = bytes.split_to(2);
-        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_length =
+            length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
         Ok(Frame {
             header_bytes,
@@ -505,7 +513,8 @@ pub struct ErrorFrame<'a> {
 
 impl ErrorFrame<'_> {
     pub fn message(&self) -> &str {
-        std::str::from_utf8(self.payload.as_ref()).expect("Failed to parse message")
+        std::str::from_utf8(self.payload.as_ref())
+            .expect("Failed to parse message")
     }
 }
 
@@ -521,7 +530,8 @@ impl<'a> From<&'a Frame> for ErrorFrame<'a> {
 
 impl From<ErrorFrame<'_>> for Frame {
     fn from(frame: ErrorFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload.clone()),
@@ -537,7 +547,8 @@ pub struct ErrorFrameNew<'a> {
 
 impl From<ErrorFrameNew<'_>> for Frame {
     fn from(frame: ErrorFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload),
@@ -550,7 +561,8 @@ impl<'a> Parse for ErrorFrame<'a> {
         // TODO bounds check
         let header_bytes = bytes.split_to(size_of::<ErrorHeader>());
         let length_bytes = bytes.split_to(2);
-        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_length =
+            length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
         Ok(Frame {
             header_bytes,
@@ -577,7 +589,8 @@ impl<'a> From<&'a Frame> for DataFrame<'a> {
 
 impl From<DataFrame<'_>> for Frame {
     fn from(frame: DataFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload.clone()),
@@ -593,7 +606,8 @@ pub struct DataFrameNew<'a> {
 
 impl From<DataFrameNew<'_>> for Frame {
     fn from(frame: DataFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload),
@@ -605,8 +619,8 @@ impl<'a> Parse for DataFrame<'a> {
     fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
         // TODO bounds check
         let header_bytes = bytes.split_to(size_of::<DataHeader>());
-        let header =
-            DataHeader::ref_from(header_bytes.as_ref()).expect("Failed to reference DataHeader");
+        let header = DataHeader::ref_from(header_bytes.as_ref())
+            .expect("Failed to reference DataHeader");
         // TODO put this into a helper function of the header struct,
         //      or define a custom u24 type
         let payload_length = header.length[0] as usize
@@ -628,7 +642,8 @@ pub struct ReadFrame<'a> {
 
 impl ReadFrame<'_> {
     pub fn path(&self) -> &str {
-        std::str::from_utf8(self.payload.as_ref()).expect("Failed to parse path")
+        std::str::from_utf8(self.payload.as_ref())
+            .expect("Failed to parse path")
     }
 }
 
@@ -644,7 +659,8 @@ impl<'a> From<&'a Frame> for ReadFrame<'a> {
 
 impl From<ReadFrame<'_>> for Frame {
     fn from(frame: ReadFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload.clone()),
@@ -660,7 +676,8 @@ pub struct ReadFrameNew<'a> {
 
 impl From<ReadFrameNew<'_>> for Frame {
     fn from(frame: ReadFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload),
@@ -673,7 +690,8 @@ impl<'a> Parse for ReadFrame<'a> {
         // TODO bounds check
         let header_bytes = bytes.split_to(size_of::<ReadHeader>());
         let length_bytes = bytes.split_to(2);
-        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_length =
+            length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
         Ok(Frame {
             header_bytes,
@@ -690,7 +708,8 @@ pub struct WriteFrame<'a> {
 
 impl WriteFrame<'_> {
     pub fn path(&self) -> &str {
-        std::str::from_utf8(self.payload.as_ref()).expect("Failed to parse path")
+        std::str::from_utf8(self.payload.as_ref())
+            .expect("Failed to parse path")
     }
 }
 
@@ -706,7 +725,8 @@ impl<'a> From<&'a Frame> for WriteFrame<'a> {
 
 impl From<WriteFrame<'_>> for Frame {
     fn from(frame: WriteFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload.clone()),
@@ -722,7 +742,8 @@ pub struct WriteFrameNew<'a> {
 
 impl From<WriteFrameNew<'_>> for Frame {
     fn from(frame: WriteFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload),
@@ -735,7 +756,8 @@ impl<'a> Parse for WriteFrame<'a> {
         // TODO bounds check
         let header_bytes = bytes.split_to(size_of::<WriteHeader>());
         let length_bytes = bytes.split_to(2);
-        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_length =
+            length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
         Ok(Frame {
             header_bytes,
@@ -752,7 +774,8 @@ pub struct ChecksumFrame<'a> {
 
 impl ChecksumFrame<'_> {
     pub fn path(&self) -> &str {
-        std::str::from_utf8(self.payload.as_ref()).expect("Failed to parse path")
+        std::str::from_utf8(self.payload.as_ref())
+            .expect("Failed to parse path")
     }
 }
 
@@ -768,7 +791,8 @@ impl<'a> From<&'a Frame> for ChecksumFrame<'a> {
 
 impl From<ChecksumFrame<'_>> for Frame {
     fn from(frame: ChecksumFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload.clone()),
@@ -784,7 +808,8 @@ pub struct ChecksumFrameNew<'a> {
 
 impl From<ChecksumFrameNew<'_>> for Frame {
     fn from(frame: ChecksumFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload),
@@ -797,7 +822,8 @@ impl<'a> Parse for ChecksumFrame<'a> {
         // TODO bounds check
         let header_bytes = bytes.split_to(size_of::<ChecksumHeader>());
         let length_bytes = bytes.split_to(2);
-        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_length =
+            length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
         Ok(Frame {
             header_bytes,
@@ -814,7 +840,8 @@ pub struct StatFrame<'a> {
 
 impl StatFrame<'_> {
     pub fn path(&self) -> &str {
-        std::str::from_utf8(self.payload.as_ref()).expect("Failed to parse path")
+        std::str::from_utf8(self.payload.as_ref())
+            .expect("Failed to parse path")
     }
 }
 
@@ -830,7 +857,8 @@ impl<'a> From<&'a Frame> for StatFrame<'a> {
 
 impl From<StatFrame<'_>> for Frame {
     fn from(frame: StatFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload.clone()),
@@ -846,7 +874,8 @@ pub struct StatFrameNew<'a> {
 
 impl From<StatFrameNew<'_>> for Frame {
     fn from(frame: StatFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload),
@@ -859,7 +888,8 @@ impl<'a> Parse for StatFrame<'a> {
         // TODO bounds check
         let header_bytes = bytes.split_to(size_of::<StatHeader>());
         let length_bytes = bytes.split_to(2);
-        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_length =
+            length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
         Ok(Frame {
             header_bytes,
@@ -876,7 +906,8 @@ pub struct ListFrame<'a> {
 
 impl ListFrame<'_> {
     pub fn path(&self) -> &str {
-        std::str::from_utf8(self.payload.as_ref()).expect("Failed to parse path")
+        std::str::from_utf8(self.payload.as_ref())
+            .expect("Failed to parse path")
     }
 }
 
@@ -892,7 +923,8 @@ impl<'a> From<&'a Frame> for ListFrame<'a> {
 
 impl From<ListFrame<'_>> for Frame {
     fn from(frame: ListFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload.clone()),
@@ -908,7 +940,8 @@ pub struct ListFrameNew<'a> {
 
 impl From<ListFrameNew<'_>> for Frame {
     fn from(frame: ListFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
+        let header_bytes =
+            BytesMut::from(AsBytes::as_bytes(frame.header)).into();
         Frame {
             header_bytes,
             payload_bytes: Some(frame.payload),
@@ -921,7 +954,8 @@ impl<'a> Parse for ListFrame<'a> {
         // TODO bounds check
         let header_bytes = bytes.split_to(size_of::<ListHeader>());
         let length_bytes = bytes.split_to(2);
-        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_length =
+            length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
         Ok(Frame {
             header_bytes,
@@ -1054,7 +1088,8 @@ mod tests {
             .into(),
         );
         let bytes1 = packet1.assemble();
-        let packet2 = Packet::parse(bytes1.clone().into()).expect("Parsing failed");
+        let packet2 =
+            Packet::parse(bytes1.clone().into()).expect("Parsing failed");
         let bytes2 = packet2.assemble();
         assert_eq!(bytes1, bytes2);
     }
