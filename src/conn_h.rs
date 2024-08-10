@@ -34,7 +34,7 @@ fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
 }
 
 #[allow(dead_code)]
-fn make_error(stream_id: u16, frame_id: u32, msg: String) -> Frame {
+fn make_error(stream_id: u16, cmd_frame_id: u32, tx_frame_id: u32, msg: String) -> Frame {
     let bytes_msg = Bytes::from(msg);
     let payload_len_be_bytes: &[u8] = &(bytes_msg.len() as u16).to_be_bytes();
     let mut payload_m = BytesMut::from(payload_len_be_bytes);
@@ -44,8 +44,8 @@ fn make_error(stream_id: u16, frame_id: u32, msg: String) -> Frame {
         header: &ErrorHeader {
             typ: 5,
             stream_id,
-            frame_id: frame_id + 1,
-            command_frame_id: frame_id,
+            frame_id: tx_frame_id,
+            command_frame_id: cmd_frame_id,
         },
         payload: &payload,
     }
@@ -75,9 +75,11 @@ where
                     let path: String = match str::from_utf8(cmd.payload) {
                         Ok(s) => s.into(),
                         Err(_) => {
+                            frame_number += 1;
                             sink.send(make_error(
                                 cmd.header.stream_id,
                                 cmd.header.frame_id,
+                                frame_number,
                                 "Invalid Payload".into(),
                             ))
                             .await
@@ -90,9 +92,11 @@ where
                     let file: File = match OpenOptions::new().read(true).open(path.clone()) {
                         Ok(f) => f,
                         Err(e) => {
+                            frame_number += 1;
                             sink.send(make_error(
                                 cmd.header.stream_id,
                                 cmd.header.frame_id,
+                                frame_number,
                                 e.to_string(),
                             ))
                             .await
@@ -111,9 +115,11 @@ where
                     match reader.seek(SeekFrom::Start(cmd.header.offset())) {
                         Ok(_) => {}
                         Err(e) => {
+                            frame_number += 1;
                             sink.send(make_error(
                                 cmd.header.stream_id,
                                 cmd.header.frame_id,
+                                frame_number,
                                 e.to_string(),
                             ))
                             .await
@@ -175,9 +181,11 @@ where
                                         }
                                         Ordering::Less => {
                                             //"rewind ACK" ???????
+                                            frame_number += 1;
                                             sink.send(make_error(
                                                 cmd.header.stream_id,
-                                                last_ackd_frame,
+                                                af_frame_id,
+                                                frame_number,
                                                 "ACK'd frame number inconsistency".into(),
                                             ))
                                             .await
@@ -189,9 +197,11 @@ where
                                 Err(_) => {
                                     //timeout: send error frame, exit
                                     //TODO: retry x times
+                                    frame_number += 1;
                                     sink.send(make_error(
                                         cmd.header.stream_id,
-                                        last_ackd_frame,
+                                        cmd.header.frame_id,
+                                        frame_number,
                                         "Timeout".into(),
                                     ))
                                     .await
@@ -200,9 +210,11 @@ where
                                 }
                                 _ => {
                                     //other frame received: send error frame, exit
+                                    frame_number += 1;
                                     sink.send(make_error(
                                         cmd.header.stream_id,
-                                        0,
+                                        cmd.header.frame_id,
+                                        frame_number,
                                         "Illegal Frame Received".into(),
                                     ))
                                     .await
@@ -263,13 +275,17 @@ where
                 }
 
                 Frames::Write(cmd) => {
+                    let mut frame_number = 0; //last used tx frame number
+
                     //parse path
                     let path: String = match str::from_utf8(cmd.payload) {
                         Ok(s) => s.into(),
                         Err(_) => {
+                            frame_number += 1;
                             sink.send(make_error(
                                 cmd.header.stream_id,
                                 cmd.header.frame_id,
+                                frame_number,
                                 "Invalid Payload".into(),
                             ))
                             .await
@@ -287,9 +303,11 @@ where
                     {
                         Ok(f) => f,
                         Err(e) => {
+                            frame_number += 1;
                             sink.send(make_error(
                                 cmd.header.stream_id,
                                 cmd.header.frame_id,
+                                frame_number,
                                 e.to_string(),
                             ))
                             .await
@@ -301,9 +319,11 @@ where
                     //check if file size matches write offset
                     let metadata = fs::metadata(path.clone()).expect("Could not get file metadata");
                     if metadata.len() != cmd.header.offset() {
+                        frame_number += 1;
                         sink.send(make_error(
                             cmd.header.stream_id,
                             cmd.header.frame_id,
+                            frame_number,
                             "Write offset does not match file size".into(),
                         ))
                         .await
@@ -334,9 +354,11 @@ where
                             Ok(f) => f,
                             Err(_) => {
                                 //timeout: sed error frame, exit
+                                frame_number += 1;
                                 sink.send(make_error(
                                     cmd.header.stream_id,
                                     last_frame_id,
+                                    frame_number,
                                     "Timeout".into(),
                                 ))
                                 .await
@@ -412,9 +434,11 @@ where
                             }
                         } else {
                             //illegal frame or channel closed: abort transmission and leave file so client can continue later
+                            frame_number += 1;
                             sink.send(make_error(
                                 cmd.header.stream_id,
-                                0,
+                                cmd.header.frame_id,
+                                frame_number,
                                 "Illegal Frame Received".into(),
                             ))
                             .await
@@ -450,6 +474,7 @@ where
                                 sink.send(make_error(
                                     cmd.header.stream_id,
                                     cmd.header.frame_id,
+                                    1,
                                     e.to_string(),
                                 ))
                                 .await
@@ -461,6 +486,7 @@ where
                             sink.send(make_error(
                                 cmd.header.stream_id,
                                 cmd.header.frame_id,
+                                1,
                                 "Invalid Payload".into(),
                             ))
                             .await
@@ -476,6 +502,7 @@ where
                     sink.send(make_error(
                         cmd.header.stream_id,
                         cmd.header.frame_id,
+                        1,
                         "Not implemented".into(),
                     ))
                     .await
@@ -487,6 +514,7 @@ where
                     sink.send(make_error(
                         cmd.header.stream_id,
                         cmd.header.frame_id,
+                        1,
                         "Not implemented".into(),
                     ))
                     .await
