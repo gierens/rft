@@ -8,13 +8,13 @@ use futures::{Sink, SinkExt, Stream, StreamExt};
 use std::fmt::Debug;
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::{fs, str};
+use std::cmp::Ordering;
 use tokio::time::timeout;
 
 use ring::digest;
 use ring::digest::{Digest, SHA256};
 use std::fs::{File, OpenOptions};
 use std::time::Duration;
-use tokio::time::error::Elapsed;
 
 //from rust cookbook
 #[allow(dead_code)]
@@ -141,7 +141,7 @@ where
                     let mut last_ackd_offset = cmd.header.offset(); //the first not yet ACK'd byte
 
                     //this buffer includes, for the last x frames sent, up to (exclusive) which offset the frame contained data
-                    let mut cum_ack_offset_ringbuf = vec![0u64; (cum_ack_interval as usize)];
+                    let mut cum_ack_offset_ringbuf = vec![0u64; cum_ack_interval as usize];
                     let mut ringbuf_head: u32 = 0; //head: last written element (increment before use)
 
                     let mut read_buf = [0u8; 512];
@@ -154,30 +154,36 @@ where
                             match timeout(Duration::from_secs(5), stream.next()).await {
                                 Ok(Some(Frames::Ack(af))) => {
                                     //check if new ack, double ack, or illegal
-                                    if af.frame_id > last_ackd_frame {
-                                        //advance last ack'd frame id and offset
-                                        last_ackd_offset = cum_ack_offset_ringbuf[(((ringbuf_head
-                                            + cum_ack_interval)
-                                            - (af.frame_id - frame_number))
-                                            % cum_ack_interval)
-                                            as usize];
-                                        last_ackd_frame = af.frame_id;
-                                    } else if af.frame_id == last_ackd_frame {
-                                        //rewind reader to last ACK'd offset
-                                        reader
-                                            .seek(SeekFrom::Start(last_ackd_offset))
-                                            .expect("file read error");
-                                        //rewind frame number
-                                        frame_number = last_ackd_frame;
-                                    } else {
-                                        sink.send(make_error(
-                                            cmd.header.stream_id,
-                                            last_ackd_frame,
-                                            "ACK'd frame number inconsistency".into(),
-                                        ))
-                                        .await
-                                        .expect("stream_handler: could not send response");
-                                        return Ok(());
+                                    let af_frame_id = af.frame_id;
+                                    match af_frame_id.cmp(&last_ackd_frame) {
+                                        Ordering::Greater => {
+                                            //new ACK: advance last ack'd frame id and offset
+                                            last_ackd_offset = cum_ack_offset_ringbuf[(((ringbuf_head
+                                                + cum_ack_interval)
+                                                - (af.frame_id - frame_number))
+                                                % cum_ack_interval)
+                                                as usize];
+                                            last_ackd_frame = af.frame_id;
+                                        }
+                                        Ordering::Equal => {
+                                            //double ACK: rewind reader to last ACK'd offset
+                                            reader
+                                                .seek(SeekFrom::Start(last_ackd_offset))
+                                                .expect("file read error");
+                                            //rewind frame number
+                                            frame_number = last_ackd_frame;
+                                        }
+                                        Ordering::Less => {
+                                            //"rewind ACK" ???????
+                                            sink.send(make_error(
+                                                cmd.header.stream_id,
+                                                last_ackd_frame,
+                                                "ACK'd frame number inconsistency".into(),
+                                            ))
+                                                .await
+                                                .expect("stream_handler: could not send response");
+                                            return Ok(());
+                                        }
                                     }
                                 }
                                 Err(_) => {
