@@ -7,6 +7,7 @@ mod client;
 mod conn_h;
 mod loss_simulation;
 mod server;
+#[allow(dead_code)]
 mod wire;
 
 use client::Client;
