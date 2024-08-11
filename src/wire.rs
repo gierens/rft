@@ -64,6 +64,14 @@ impl AckFrame {
     }
 }
 
+impl Parse for AckFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let bytes = bytes.split_to(size_of::<AckFrame>());
+        Ok(AckFrame { bytes }.into())
+    }
+}
+
 impl Debug for AckFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Ack")
@@ -98,6 +106,14 @@ impl ExitFrame {
 
     pub fn type_id(&self) -> u8 {
         self.header().type_id
+    }
+}
+
+impl Parse for ExitFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let bytes = bytes.split_to(size_of::<ExitFrame>());
+        Ok(ExitFrame { bytes }.into())
     }
 }
 
@@ -150,6 +166,14 @@ impl ConnIdChangeFrame {
     }
 }
 
+impl Parse for ConnIdChangeFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let bytes = bytes.split_to(size_of::<ConnIdChangeFrame>());
+        Ok(ConnIdChangeFrame { bytes }.into())
+    }
+}
+
 impl Debug for ConnIdChangeFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let old_cid = self.header().old_cid;
@@ -195,6 +219,14 @@ impl FlowControlFrame {
 
     pub fn window_size(&self) -> u32 {
         self.header().window_size
+    }
+}
+
+impl Parse for FlowControlFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let bytes = bytes.split_to(size_of::<FlowControlFrame>());
+        Ok(FlowControlFrame { bytes }.into())
     }
 }
 
@@ -263,6 +295,20 @@ impl AnswerFrame {
     }
 }
 
+impl Parse for AnswerFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<AnswerHeader>());
+        let length_bytes = bytes.split_to(2);
+        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_bytes = bytes.split_to(payload_length);
+        Ok(AnswerFrame {
+            header_bytes,
+            payload_bytes,
+        }.into())
+    }
+}
+
 impl Debug for AnswerFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Answer")
@@ -328,6 +374,20 @@ impl ErrorFrame {
 
     pub fn message(&self) -> &str {
         from_utf8(self.payload_bytes.as_ref()).expect("Failed to parse message")
+    }
+}
+
+impl Parse for ErrorFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<ErrorHeader>());
+        let length_bytes = bytes.split_to(2);
+        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_bytes = bytes.split_to(payload_length);
+        Ok(ErrorFrame {
+            header_bytes,
+            payload_bytes,
+        }.into())
     }
 }
 
@@ -413,6 +473,22 @@ impl DataFrame {
 
     pub fn payload(&self) -> &Bytes {
         &self.payload_bytes
+    }
+}
+
+impl Parse for DataFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<DataHeader>());
+        let header =
+            DataHeader::ref_from(header_bytes.as_ref()).expect("Failed to reference DataHeader");
+        // TODO put this into a helper function of the header struct,
+        //      or define a custom u24 type
+        let payload_length = header.length[0] as usize
+            | (header.length[1] as usize) << 8
+            | (header.length[2] as usize) << 16;
+        let payload_bytes = bytes.split_to(payload_length);
+        Ok(DataFrame { header_bytes, payload_bytes }.into())
     }
 }
 
@@ -503,6 +579,17 @@ impl ReadFrame {
     }
 }
 
+impl Parse for ReadFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<ReadHeader>());
+        let length_bytes = bytes.split_to(2);
+        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_bytes = bytes.split_to(payload_length);
+        Ok(ReadFrame { header_bytes, payload_bytes }.into())
+    }
+}
+
 impl Debug for ReadFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Read")
@@ -579,6 +666,17 @@ impl WriteFrame {
     }
 }
 
+impl Parse for WriteFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<WriteHeader>());
+        let length_bytes = bytes.split_to(2);
+        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_bytes = bytes.split_to(payload_length);
+        Ok(WriteFrame { header_bytes, payload_bytes }.into())
+    }
+}
+
 impl Debug for WriteFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Write")
@@ -639,6 +737,17 @@ impl ChecksumFrame {
 
     pub fn path(&self) -> &Path {
         Path::new(from_utf8(self.payload_bytes.as_ref()).expect("Failed to parse path"))
+    }
+}
+
+impl Parse for ChecksumFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<ChecksumHeader>());
+        let length_bytes = bytes.split_to(2);
+        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_bytes = bytes.split_to(payload_length);
+        Ok(ChecksumFrame { header_bytes, payload_bytes }.into())
     }
 }
 
@@ -703,6 +812,17 @@ impl StatFrame {
     }
 }
 
+impl Parse for StatFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<StatHeader>());
+        let length_bytes = bytes.split_to(2);
+        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_bytes = bytes.split_to(payload_length);
+        Ok(StatFrame { header_bytes, payload_bytes }.into())
+    }
+}
+
 impl Debug for StatFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Stat")
@@ -761,6 +881,17 @@ impl ListFrame {
 
     pub fn path(&self) -> &Path {
         Path::new(from_utf8(self.payload_bytes.as_ref()).expect("Failed to parse path"))
+    }
+}
+
+impl Parse for ListFrame {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
+        // TODO bounds check
+        let header_bytes = bytes.split_to(size_of::<ListHeader>());
+        let length_bytes = bytes.split_to(2);
+        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
+        let payload_bytes = bytes.split_to(payload_length);
+        Ok(ListFrame { header_bytes, payload_bytes }.into())
     }
 }
 
