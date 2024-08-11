@@ -1,7 +1,7 @@
 use crate::loss_simulation::LossSimulation;
+use crate::wire::{Assemble, Packet};
 use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
 use std::path::PathBuf;
-use crate::wire::{Packet, Assemble};
 
 pub struct Client {
     #[allow(dead_code)]

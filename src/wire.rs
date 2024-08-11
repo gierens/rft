@@ -1,9 +1,9 @@
 use anyhow::anyhow;
 use bytes::{Bytes, BytesMut};
-use std::{fmt::Debug, path::Path};
 use std::mem::size_of;
-use zerocopy::{AsBytes, FromBytes, FromZeroes};
 use std::str::from_utf8;
+use std::{fmt::Debug, path::Path};
+use zerocopy::{AsBytes, FromBytes, FromZeroes};
 
 const VERSION: u8 = 1;
 
@@ -100,7 +100,9 @@ impl ExitFrame {
     const TYPE_ID: u8 = 1;
 
     pub fn new() -> Self {
-        let header = ExitHeader { type_id: Self::TYPE_ID };
+        let header = ExitHeader {
+            type_id: Self::TYPE_ID,
+        };
         let bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
         ExitFrame { bytes }
     }
@@ -328,7 +330,8 @@ impl Parse for AnswerFrame {
         Ok(AnswerFrame {
             header_bytes,
             payload_bytes,
-        }.into())
+        }
+        .into())
     }
 }
 
@@ -416,7 +419,11 @@ impl Parse for ErrorFrame {
         let length_bytes = bytes.split_to(2);
         let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
-        Ok(ErrorFrame { header_bytes, payload_bytes }.into())
+        Ok(ErrorFrame {
+            header_bytes,
+            payload_bytes,
+        }
+        .into())
     }
 }
 
@@ -521,7 +528,11 @@ impl Parse for DataFrame {
         let length_bytes = bytes.split_to(2);
         let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
-        Ok(DataFrame { header_bytes, payload_bytes }.into())
+        Ok(DataFrame {
+            header_bytes,
+            payload_bytes,
+        }
+        .into())
     }
 }
 
@@ -565,7 +576,15 @@ pub struct ReadFrame {
 impl ReadFrame {
     const TYPE_ID: u8 = 7;
 
-    pub fn new(stream_id: u16, frame_id: u32, flags: u8, offset: u64, length: u64, checksum: u32, path: &Path) -> Self {
+    pub fn new(
+        stream_id: u16,
+        frame_id: u32,
+        flags: u8,
+        offset: u64,
+        length: u64,
+        checksum: u32,
+        path: &Path,
+    ) -> Self {
         let header = ReadHeader {
             type_id: Self::TYPE_ID,
             stream_id,
@@ -576,7 +595,11 @@ impl ReadFrame {
             checksum,
         };
         let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
-        let payload_bytes = Bytes::copy_from_slice(path.to_str().expect("Failed to convert path to string").as_bytes());
+        let payload_bytes = Bytes::copy_from_slice(
+            path.to_str()
+                .expect("Failed to convert path to string")
+                .as_bytes(),
+        );
         ReadFrame {
             header_bytes,
             payload_bytes,
@@ -627,7 +650,11 @@ impl Parse for ReadFrame {
         let length_bytes = bytes.split_to(2);
         let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
-        Ok(ReadFrame { header_bytes, payload_bytes }.into())
+        Ok(ReadFrame {
+            header_bytes,
+            payload_bytes,
+        }
+        .into())
     }
 }
 
@@ -680,7 +707,11 @@ impl WriteFrame {
             length: u64_to_six_u8(length),
         };
         let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
-        let payload_bytes = Bytes::copy_from_slice(path.to_str().expect("Failed to convert path to string").as_bytes());
+        let payload_bytes = Bytes::copy_from_slice(
+            path.to_str()
+                .expect("Failed to convert path to string")
+                .as_bytes(),
+        );
         WriteFrame {
             header_bytes,
             payload_bytes,
@@ -723,7 +754,11 @@ impl Parse for WriteFrame {
         let length_bytes = bytes.split_to(2);
         let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
-        Ok(WriteFrame { header_bytes, payload_bytes }.into())
+        Ok(WriteFrame {
+            header_bytes,
+            payload_bytes,
+        }
+        .into())
     }
 }
 
@@ -771,7 +806,11 @@ impl ChecksumFrame {
             frame_id,
         };
         let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
-        let payload_bytes = Bytes::copy_from_slice(path.to_str().expect("Failed to convert path to string").as_bytes());
+        let payload_bytes = Bytes::copy_from_slice(
+            path.to_str()
+                .expect("Failed to convert path to string")
+                .as_bytes(),
+        );
         ChecksumFrame {
             header_bytes,
             payload_bytes,
@@ -779,7 +818,8 @@ impl ChecksumFrame {
     }
 
     pub fn header(&self) -> &ChecksumHeader {
-        ChecksumHeader::ref_from(self.header_bytes.as_ref()).expect("Failed to reference ChecksumHeader")
+        ChecksumHeader::ref_from(self.header_bytes.as_ref())
+            .expect("Failed to reference ChecksumHeader")
     }
 
     pub fn type_id(&self) -> u8 {
@@ -806,7 +846,11 @@ impl Parse for ChecksumFrame {
         let length_bytes = bytes.split_to(2);
         let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
-        Ok(ChecksumFrame { header_bytes, payload_bytes }.into())
+        Ok(ChecksumFrame {
+            header_bytes,
+            payload_bytes,
+        }
+        .into())
     }
 }
 
@@ -852,7 +896,11 @@ impl StatFrame {
             frame_id,
         };
         let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
-        let payload_bytes = Bytes::copy_from_slice(path.to_str().expect("Failed to convert path to string").as_bytes());
+        let payload_bytes = Bytes::copy_from_slice(
+            path.to_str()
+                .expect("Failed to convert path to string")
+                .as_bytes(),
+        );
         StatFrame {
             header_bytes,
             payload_bytes,
@@ -887,7 +935,11 @@ impl Parse for StatFrame {
         let length_bytes = bytes.split_to(2);
         let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
-        Ok(StatFrame { header_bytes, payload_bytes }.into())
+        Ok(StatFrame {
+            header_bytes,
+            payload_bytes,
+        }
+        .into())
     }
 }
 
@@ -933,7 +985,11 @@ impl ListFrame {
             frame_id,
         };
         let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
-        let payload_bytes = Bytes::copy_from_slice(path.to_str().expect("Failed to convert path to string").as_bytes());
+        let payload_bytes = Bytes::copy_from_slice(
+            path.to_str()
+                .expect("Failed to convert path to string")
+                .as_bytes(),
+        );
         ListFrame {
             header_bytes,
             payload_bytes,
@@ -968,7 +1024,11 @@ impl Parse for ListFrame {
         let length_bytes = bytes.split_to(2);
         let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
-        Ok(ListFrame { header_bytes, payload_bytes }.into())
+        Ok(ListFrame {
+            header_bytes,
+            payload_bytes,
+        }
+        .into())
     }
 }
 
@@ -1312,9 +1372,7 @@ mod tests {
     fn test_assemble_and_parse_packet() {
         let mut packet1 = Packet::new(1);
         // packet1.add_frame(AckFrame::new(1, 1).into());
-        packet1.add_frame(
-            AnswerFrame::new(1, 2, 3, vec![1, 2, 3, 4, 5, 6, 7, 8].into()).into(),
-        );
+        packet1.add_frame(AnswerFrame::new(1, 2, 3, vec![1, 2, 3, 4, 5, 6, 7, 8].into()).into());
         let bytes1 = packet1.assemble();
         let packet2 = Packet::parse(bytes1.clone().into()).expect("Parsing failed");
         let bytes2 = packet2.assemble();
