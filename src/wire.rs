@@ -66,7 +66,7 @@ impl AckFrame {
 impl Parse for AckFrame {
     fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
         // TODO bounds check
-        let bytes = bytes.split_to(size_of::<AckFrame>());
+        let bytes = bytes.split_to(size_of::<AckHeader>());
         Ok(AckFrame { bytes }.into())
     }
 }
@@ -117,7 +117,7 @@ impl ExitFrame {
 impl Parse for ExitFrame {
     fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
         // TODO bounds check
-        let bytes = bytes.split_to(size_of::<ExitFrame>());
+        let bytes = bytes.split_to(size_of::<ExitHeader>());
         Ok(ExitFrame { bytes }.into())
     }
 }
@@ -180,7 +180,7 @@ impl ConnIdChangeFrame {
 impl Parse for ConnIdChangeFrame {
     fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
         // TODO bounds check
-        let bytes = bytes.split_to(size_of::<ConnIdChangeFrame>());
+        let bytes = bytes.split_to(size_of::<ConnIdChangeHeader>());
         Ok(ConnIdChangeFrame { bytes }.into())
     }
 }
@@ -242,7 +242,7 @@ impl FlowControlFrame {
 impl Parse for FlowControlFrame {
     fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
         // TODO bounds check
-        let bytes = bytes.split_to(size_of::<FlowControlFrame>());
+        let bytes = bytes.split_to(size_of::<FlowControlHeader>());
         Ok(FlowControlFrame { bytes }.into())
     }
 }
