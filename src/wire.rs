@@ -1102,594 +1102,73 @@ impl<'a> From<&'a Frame> for &'a AckFrame {
 
 impl From<AckFrame> for Frame {
     fn from(frame: AckFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(&frame)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: None,
-        }
-    }
-}
-
-impl Parse for AckFrame {
-    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
-        // TODO bounds check
-        let header_bytes = bytes.split_to(size_of::<AckFrame>());
-        Ok(Frame {
-            header_bytes,
-            payload_bytes: None,
-        })
-    }
-}
-
-impl<'a> From<&'a Frame> for &'a ExitFrame {
-    fn from(frame: &'a Frame) -> Self {
-        ExitFrame::ref_from(frame.header_bytes.as_ref()).expect("Failed to reference ExitFrame")
+        Frame::Ack(frame)
     }
 }
 
 impl From<ExitFrame> for Frame {
     fn from(frame: ExitFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(&frame)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: None,
-        }
-    }
-}
-
-impl Parse for ExitFrame {
-    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
-        // TODO bounds check
-        let header_bytes = bytes.split_to(size_of::<ExitFrame>());
-        Ok(Frame {
-            header_bytes,
-            payload_bytes: None,
-        })
-    }
-}
-
-impl<'a> From<&'a Frame> for &'a ConnIdChangeFrame {
-    fn from(frame: &'a Frame) -> Self {
-        ConnIdChangeFrame::ref_from(frame.header_bytes.as_ref())
-            .expect("Failed to reference ConnIdChangeFrame")
+        Frame::Exit(frame)
     }
 }
 
 impl From<ConnIdChangeFrame> for Frame {
     fn from(frame: ConnIdChangeFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(&frame)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: None,
-        }
-    }
-}
-
-impl Parse for ConnIdChangeFrame {
-    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
-        // TODO bounds check
-        let header_bytes = bytes.split_to(size_of::<ConnIdChangeFrame>());
-        Ok(Frame {
-            header_bytes,
-            payload_bytes: None,
-        })
-    }
-}
-
-impl<'a> From<&'a Frame> for &'a FlowControlFrame {
-    fn from(frame: &'a Frame) -> Self {
-        FlowControlFrame::ref_from(frame.header_bytes.as_ref())
-            .expect("Failed to reference FlowControlFrame")
+        Frame::ConnIdChange(frame)
     }
 }
 
 impl From<FlowControlFrame> for Frame {
     fn from(frame: FlowControlFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(&frame)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: None,
-        }
+        Frame::FlowControl(frame)
     }
 }
 
-impl Parse for FlowControlFrame {
-    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
-        // TODO bounds check
-        let header_bytes = bytes.split_to(size_of::<FlowControlFrame>());
-        Ok(Frame {
-            header_bytes,
-            payload_bytes: None,
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct AnswerFrame<'a> {
-    pub header: &'a AnswerHeader,
-    pub payload: &'a Bytes,
-}
-
-impl<'a> From<&'a Frame> for AnswerFrame<'a> {
-    fn from(frame: &'a Frame) -> Self {
-        AnswerFrame {
-            header: AnswerHeader::ref_from(frame.header_bytes.as_ref())
-                .expect("Failed to reference AnswerFrame"),
-            payload: frame.payload().expect("Missing payload in AnswerFrame"),
-        }
-    }
-}
-
-impl From<AnswerFrame<'_>> for Frame {
+impl From<AnswerFrame> for Frame {
     fn from(frame: AnswerFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload.clone()),
-        }
+        Frame::Answer(frame)
     }
 }
 
-#[derive(Debug)]
-pub struct AnswerFrameNew<'a> {
-    pub header: &'a AnswerHeader,
-    pub payload: Bytes,
-}
-
-impl From<AnswerFrameNew<'_>> for Frame {
-    fn from(frame: AnswerFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload),
-        }
-    }
-}
-
-impl<'a> Parse for AnswerFrame<'a> {
-    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
-        // TODO bounds check
-        let header_bytes = bytes.split_to(size_of::<AnswerHeader>());
-        let length_bytes = bytes.split_to(2);
-        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
-        let payload_bytes = bytes.split_to(payload_length);
-        Ok(Frame {
-            header_bytes,
-            payload_bytes: Some(payload_bytes),
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct ErrorFrame<'a> {
-    pub header: &'a ErrorHeader,
-    pub payload: &'a Bytes,
-}
-
-impl ErrorFrame<'_> {
-    pub fn message(&self) -> &str {
-        std::str::from_utf8(self.payload.as_ref()).expect("Failed to parse message")
-    }
-}
-
-impl<'a> From<&'a Frame> for ErrorFrame<'a> {
-    fn from(frame: &'a Frame) -> Self {
-        ErrorFrame {
-            header: ErrorHeader::ref_from(frame.header_bytes.as_ref())
-                .expect("Failed to reference ErrorFrame"),
-            payload: frame.payload().expect("Missing payload in ErrorFrame"),
-        }
-    }
-}
-
-impl From<ErrorFrame<'_>> for Frame {
+impl From<ErrorFrame> for Frame {
     fn from(frame: ErrorFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload.clone()),
-        }
+        Frame::Error(frame)
     }
 }
 
-#[derive(Debug)]
-pub struct ErrorFrameNew<'a> {
-    pub header: &'a ErrorHeader,
-    pub payload: Bytes,
-}
-
-impl From<ErrorFrameNew<'_>> for Frame {
-    fn from(frame: ErrorFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload),
-        }
-    }
-}
-
-impl<'a> Parse for ErrorFrame<'a> {
-    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
-        // TODO bounds check
-        let header_bytes = bytes.split_to(size_of::<ErrorHeader>());
-        let length_bytes = bytes.split_to(2);
-        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
-        let payload_bytes = bytes.split_to(payload_length);
-        Ok(Frame {
-            header_bytes,
-            payload_bytes: Some(payload_bytes),
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct DataFrame<'a> {
-    pub header: &'a DataHeader,
-    pub payload: &'a Bytes,
-}
-
-impl<'a> From<&'a Frame> for DataFrame<'a> {
-    fn from(frame: &'a Frame) -> Self {
-        DataFrame {
-            header: DataHeader::ref_from(frame.header_bytes.as_ref())
-                .expect("Failed to reference DataFrame"),
-            payload: frame.payload().expect("Missing payload in DataFrame"),
-        }
-    }
-}
-
-impl From<DataFrame<'_>> for Frame {
+impl From<DataFrame> for Frame {
     fn from(frame: DataFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload.clone()),
-        }
+        Frame::Data(frame)
     }
 }
 
-#[derive(Debug)]
-pub struct DataFrameNew<'a> {
-    pub header: &'a DataHeader,
-    pub payload: Bytes,
-}
-
-impl From<DataFrameNew<'_>> for Frame {
-    fn from(frame: DataFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload),
-        }
-    }
-}
-
-impl<'a> Parse for DataFrame<'a> {
-    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
-        // TODO bounds check
-        let header_bytes = bytes.split_to(size_of::<DataHeader>());
-        let header =
-            DataHeader::ref_from(header_bytes.as_ref()).expect("Failed to reference DataHeader");
-        // TODO put this into a helper function of the header struct,
-        //      or define a custom u24 type
-        let payload_length = header.length[0] as usize
-            | (header.length[1] as usize) << 8
-            | (header.length[2] as usize) << 16;
-        let payload_bytes = bytes.split_to(payload_length);
-        Ok(Frame {
-            header_bytes,
-            payload_bytes: Some(payload_bytes),
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct ReadFrame<'a> {
-    pub header: &'a ReadHeader,
-    pub payload: &'a Bytes,
-}
-
-impl ReadFrame<'_> {
-    pub fn path(&self) -> &str {
-        std::str::from_utf8(self.payload.as_ref()).expect("Failed to parse path")
-    }
-}
-
-impl<'a> From<&'a Frame> for ReadFrame<'a> {
-    fn from(frame: &'a Frame) -> Self {
-        ReadFrame {
-            header: ReadHeader::ref_from(frame.header_bytes.as_ref())
-                .expect("Failed to reference ReadFrame"),
-            payload: frame.payload().expect("Missing payload in ReadFrame"),
-        }
-    }
-}
-
-impl From<ReadFrame<'_>> for Frame {
+impl From<ReadFrame> for Frame {
     fn from(frame: ReadFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload.clone()),
-        }
+        Frame::Read(frame)
     }
 }
 
-#[derive(Debug)]
-pub struct ReadFrameNew<'a> {
-    pub header: &'a ReadHeader,
-    pub payload: Bytes,
-}
-
-impl From<ReadFrameNew<'_>> for Frame {
-    fn from(frame: ReadFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload),
-        }
-    }
-}
-
-impl<'a> Parse for ReadFrame<'a> {
-    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
-        // TODO bounds check
-        let header_bytes = bytes.split_to(size_of::<ReadHeader>());
-        let length_bytes = bytes.split_to(2);
-        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
-        let payload_bytes = bytes.split_to(payload_length);
-        Ok(Frame {
-            header_bytes,
-            payload_bytes: Some(payload_bytes),
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct WriteFrame<'a> {
-    pub header: &'a WriteHeader,
-    pub payload: &'a Bytes,
-}
-
-impl WriteFrame<'_> {
-    pub fn path(&self) -> &str {
-        std::str::from_utf8(self.payload.as_ref()).expect("Failed to parse path")
-    }
-}
-
-impl<'a> From<&'a Frame> for WriteFrame<'a> {
-    fn from(frame: &'a Frame) -> Self {
-        WriteFrame {
-            header: WriteHeader::ref_from(frame.header_bytes.as_ref())
-                .expect("Failed to reference WriteFrame"),
-            payload: frame.payload().expect("Missing payload in WriteFrame"),
-        }
-    }
-}
-
-impl From<WriteFrame<'_>> for Frame {
+impl From<WriteFrame> for Frame {
     fn from(frame: WriteFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload.clone()),
-        }
+        Frame::Write(frame)
     }
 }
 
-#[derive(Debug)]
-pub struct WriteFrameNew<'a> {
-    pub header: &'a WriteHeader,
-    pub payload: Bytes,
-}
-
-impl From<WriteFrameNew<'_>> for Frame {
-    fn from(frame: WriteFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload),
-        }
-    }
-}
-
-impl<'a> Parse for WriteFrame<'a> {
-    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
-        // TODO bounds check
-        let header_bytes = bytes.split_to(size_of::<WriteHeader>());
-        let length_bytes = bytes.split_to(2);
-        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
-        let payload_bytes = bytes.split_to(payload_length);
-        Ok(Frame {
-            header_bytes,
-            payload_bytes: Some(payload_bytes),
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct ChecksumFrame<'a> {
-    pub header: &'a ChecksumHeader,
-    pub payload: &'a Bytes,
-}
-
-impl ChecksumFrame<'_> {
-    pub fn path(&self) -> &str {
-        std::str::from_utf8(self.payload.as_ref()).expect("Failed to parse path")
-    }
-}
-
-impl<'a> From<&'a Frame> for ChecksumFrame<'a> {
-    fn from(frame: &'a Frame) -> Self {
-        ChecksumFrame {
-            header: ChecksumHeader::ref_from(frame.header_bytes.as_ref())
-                .expect("Failed to reference ChecksumFrame"),
-            payload: frame.payload().expect("Missing payload in ChecksumFrame"),
-        }
-    }
-}
-
-impl From<ChecksumFrame<'_>> for Frame {
+impl From<ChecksumFrame> for Frame {
     fn from(frame: ChecksumFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload.clone()),
-        }
+        Frame::Checksum(frame)
     }
 }
 
-#[derive(Debug)]
-pub struct ChecksumFrameNew<'a> {
-    pub header: &'a ChecksumHeader,
-    pub payload: Bytes,
-}
-
-impl From<ChecksumFrameNew<'_>> for Frame {
-    fn from(frame: ChecksumFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload),
-        }
-    }
-}
-
-impl<'a> Parse for ChecksumFrame<'a> {
-    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
-        // TODO bounds check
-        let header_bytes = bytes.split_to(size_of::<ChecksumHeader>());
-        let length_bytes = bytes.split_to(2);
-        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
-        let payload_bytes = bytes.split_to(payload_length);
-        Ok(Frame {
-            header_bytes,
-            payload_bytes: Some(payload_bytes),
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct StatFrame<'a> {
-    pub header: &'a StatHeader,
-    pub payload: &'a Bytes,
-}
-
-impl StatFrame<'_> {
-    pub fn path(&self) -> &str {
-        std::str::from_utf8(self.payload.as_ref()).expect("Failed to parse path")
-    }
-}
-
-impl<'a> From<&'a Frame> for StatFrame<'a> {
-    fn from(frame: &'a Frame) -> Self {
-        StatFrame {
-            header: StatHeader::ref_from(frame.header_bytes.as_ref())
-                .expect("Failed to reference StatFrame"),
-            payload: frame.payload().expect("Missing payload in StatFrame"),
-        }
-    }
-}
-
-impl From<StatFrame<'_>> for Frame {
+impl From<StatFrame> for Frame {
     fn from(frame: StatFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload.clone()),
-        }
+        Frame::Stat(frame)
     }
 }
 
-#[derive(Debug)]
-pub struct StatFrameNew<'a> {
-    pub header: &'a StatHeader,
-    pub payload: Bytes,
-}
-
-impl From<StatFrameNew<'_>> for Frame {
-    fn from(frame: StatFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload),
-        }
-    }
-}
-
-impl<'a> Parse for StatFrame<'a> {
-    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
-        // TODO bounds check
-        let header_bytes = bytes.split_to(size_of::<StatHeader>());
-        let length_bytes = bytes.split_to(2);
-        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
-        let payload_bytes = bytes.split_to(payload_length);
-        Ok(Frame {
-            header_bytes,
-            payload_bytes: Some(payload_bytes),
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct ListFrame<'a> {
-    pub header: &'a ListHeader,
-    pub payload: &'a Bytes,
-}
-
-impl ListFrame<'_> {
-    pub fn path(&self) -> &str {
-        std::str::from_utf8(self.payload.as_ref()).expect("Failed to parse path")
-    }
-}
-
-impl<'a> From<&'a Frame> for ListFrame<'a> {
-    fn from(frame: &'a Frame) -> Self {
-        ListFrame {
-            header: ListHeader::ref_from(frame.header_bytes.as_ref())
-                .expect("Failed to reference ListFrame"),
-            payload: frame.payload().expect("Missing payload in ListFrame"),
-        }
-    }
-}
-
-impl From<ListFrame<'_>> for Frame {
+impl From<ListFrame> for Frame {
     fn from(frame: ListFrame) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload.clone()),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct ListFrameNew<'a> {
-    pub header: &'a ListHeader,
-    pub payload: Bytes,
-}
-
-impl From<ListFrameNew<'_>> for Frame {
-    fn from(frame: ListFrameNew) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(frame.header)).into();
-        Frame {
-            header_bytes,
-            payload_bytes: Some(frame.payload),
-        }
-    }
-}
-
-impl<'a> Parse for ListFrame<'a> {
-    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
-        // TODO bounds check
-        let header_bytes = bytes.split_to(size_of::<ListHeader>());
-        let length_bytes = bytes.split_to(2);
-        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
-        let payload_bytes = bytes.split_to(payload_length);
-        Ok(Frame {
-            header_bytes,
-            payload_bytes: Some(payload_bytes),
-        })
+        Frame::List(frame)
     }
 }
 
