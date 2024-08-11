@@ -209,10 +209,69 @@ impl Debug for FlowControlFrame {
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
 pub struct AnswerHeader {
-    pub typ: u8,
+    pub type_id: u8,
     pub stream_id: u16,
     pub frame_id: u32,
     pub command_frame_id: u32,
+}
+
+pub struct AnswerFrame {
+    pub header_bytes: Bytes,
+    pub payload_bytes: Bytes,
+}
+
+impl AnswerFrame {
+    const TYPE_ID: u8 = 4;
+
+    pub fn new(stream_id: u16, frame_id: u32, command_frame_id: u32, payload: Bytes) -> Self {
+        let header = AnswerHeader {
+            type_id: Self::TYPE_ID,
+            stream_id,
+            frame_id,
+            command_frame_id,
+        };
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
+        AnswerFrame {
+            header_bytes,
+            payload_bytes: payload,
+        }
+    }
+
+    pub fn header(&self) -> &AnswerHeader {
+        AnswerHeader::ref_from(self.header_bytes.as_ref())
+            .expect("Failed to reference AnswerHeader")
+    }
+
+    pub fn typ(&self) -> u8 {
+        self.header().type_id
+    }
+
+    pub fn stream_id(&self) -> u16 {
+        self.header().stream_id
+    }
+
+    pub fn frame_id(&self) -> u32 {
+        self.header().frame_id
+    }
+
+    pub fn command_frame_id(&self) -> u32 {
+        self.header().command_frame_id
+    }
+
+    pub fn payload(&self) -> &Bytes {
+        &self.payload_bytes
+    }
+}
+
+impl Debug for AnswerFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Answer")
+            .field("stream_id", &self.stream_id())
+            .field("frame_id", &self.frame_id())
+            .field("command_frame_id", &self.command_frame_id())
+            .field("payload", &self.payload())
+            .finish()
+    }
 }
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
