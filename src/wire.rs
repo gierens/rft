@@ -1022,21 +1022,17 @@ impl Debug for Packet {
 }
 
 impl Packet {
-    pub fn new(header: PacketHeader) -> Self {
-        let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
-        Packet {
-            header_bytes,
-            frames: Vec::new(),
-        }
-    }
-
-    pub fn create(connection_id: u32) -> Self {
+    pub fn new(connection_id: u32) -> Self {
         let header = PacketHeader {
             version: VERSION,
             connection_id,
             checksum: [0; 3],
         };
-        Self::new(header)
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
+        Packet {
+            header_bytes,
+            frames: Vec::new(),
+        }
     }
 
     fn validate_checksum(bytes: &Bytes) -> bool {
