@@ -277,10 +277,69 @@ impl Debug for AnswerFrame {
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
 pub struct ErrorHeader {
-    pub typ: u8,
+    pub type_id: u8,
     pub stream_id: u16,
     pub frame_id: u32,
     pub command_frame_id: u32,
+}
+
+pub struct ErrorFrame {
+    pub header_bytes: Bytes,
+    pub payload_bytes: Bytes,
+}
+
+impl ErrorFrame {
+    const TYPE_ID: u8 = 5;
+
+    pub fn new(stream_id: u16, frame_id: u32, command_frame_id: u32, message: &str) -> Self {
+        let header = ErrorHeader {
+            type_id: Self::TYPE_ID,
+            stream_id,
+            frame_id,
+            command_frame_id,
+        };
+        let header_bytes = BytesMut::from(header.as_bytes()).into();
+        let payload_bytes = Bytes::copy_from_slice(message.as_bytes());
+        ErrorFrame {
+            header_bytes,
+            payload_bytes,
+        }
+    }
+
+    pub fn header(&self) -> &ErrorHeader {
+        ErrorHeader::ref_from(self.header_bytes.as_ref()).expect("Failed to reference ErrorHeader")
+    }
+
+    pub fn type_id(&self) -> u8 {
+        self.header().type_id
+    }
+
+    pub fn stream_id(&self) -> u16 {
+        self.header().stream_id
+    }
+
+    pub fn frame_id(&self) -> u32 {
+        self.header().frame_id
+    }
+
+    pub fn command_frame_id(&self) -> u32 {
+        self.header().command_frame_id
+    }
+
+    pub fn message(&self) -> &str {
+        from_utf8(self.payload_bytes.as_ref()).expect("Failed to parse message")
+    }
+}
+
+impl Debug for ErrorFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Error")
+            .field("stream_id", &self.stream_id())
+            .field("frame_id", &self.frame_id())
+            .field("command_frame_id", &self.command_frame_id())
+            .field("message", &self.message())
+            .finish()
+    }
 }
 
 fn six_u8_to_u64(array: &[u8; 6]) -> u64 {
