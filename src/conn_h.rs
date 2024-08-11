@@ -152,7 +152,8 @@ where
                     let mut cum_ack_offset_ringbuf = vec![0u64; cum_ack_interval as usize];
                     let mut ringbuf_head: u32 = 0; //head: last written element (increment before use)
 
-                    let mut read_buf = [0u8; 512];
+                    //TODO: which buf size to use? 128 for tests.
+                    let mut read_buf = [0u8; 128];
                     loop {
                         //check if we need to wait for ack
                         if (frame_number - last_ackd_frame >= cum_ack_interval)
@@ -168,7 +169,7 @@ where
                                             //new ACK: advance last ack'd frame id and offset
                                             last_ackd_offset = cum_ack_offset_ringbuf
                                                 [(((ringbuf_head + cum_ack_interval)
-                                                    - (af.frame_id - frame_number))
+                                                    - (af.frame_id - last_ackd_frame))
                                                     % cum_ack_interval)
                                                     as usize];
                                             last_ackd_frame = af.frame_id;
@@ -228,7 +229,7 @@ where
 
                         //check if we are finished
                         //TODO: is this actually guaranteed to work??
-                        if last_ackd_offset > file_size {
+                        if last_ackd_offset >= file_size {
                             break;
                         };
 
@@ -240,7 +241,7 @@ where
                         let lfd_b8: [u8; 8] = u64::to_be_bytes(data_bytes.len() as u64);
                         let lfd_b6: [u8; 6] = lfd_b8[2..].try_into().unwrap();
 
-                        let offset_b8: [u8; 8] = u64::to_be_bytes(last_offset + (data_size as u64));
+                        let offset_b8: [u8; 8] = u64::to_be_bytes(last_offset);
                         let offset_b6: [u8; 6] = offset_b8[2..].try_into().unwrap();
 
                         let data_hdr = DataHeader {
@@ -536,7 +537,8 @@ mod tests {
     use super::*;
     use crate::wire::Frames::{Checksum, Error};
     use crate::wire::{
-        ChecksumFrame, ChecksumHeader, DataFrame, DataHeader, WriteFrame, WriteHeader,
+        ChecksumFrame, ChecksumHeader, DataFrame, DataHeader, ReadFrame, ReadHeader, WriteFrame,
+        WriteHeader,
     };
     use crate::wire::{Frames, Frames::Answer};
     use data_encoding::HEXLOWER;
@@ -793,6 +795,152 @@ mod tests {
                     //check file
                     let file_str = fs::read_to_string(path).unwrap();
                     assert_eq!(file_str, payload);
+                }
+                Err(_) => {
+                    assert!(false);
+                }
+            }
+
+            fs::remove_file(path).unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_read_off0_with_write() {
+        //this is a simple test testing reading a whole file with no complications
+
+        //create file
+        let path = "testfile_r.txt";
+        let mut out = File::create(path).unwrap();
+        let file_text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.";
+        write!(out, "{}", file_text).unwrap();
+
+        //create read and write commands
+        let payload_r = Bytes::copy_from_slice(path.as_bytes());
+
+        {
+            let (mut itx, irx): (Sender<Frames>, Receiver<Frames>) = channel(4);
+            let (otx, mut orx): (Sender<Frame>, Receiver<Frame>) = channel(5);
+
+            //send read command
+            itx.send(Frames::Read(ReadFrame {
+                header: &ReadHeader {
+                    typ: 7,
+                    stream_id: 69,
+                    frame_id: 1,
+                    flags: 0,
+                    offset: [0, 0, 0, 0, 0, 0],
+                    length: [0, 0, 0, 0, 0, 0],
+                    checksum: 0,
+                },
+                payload: &payload_r,
+            }))
+            .await
+            .unwrap();
+
+            //send one ACK for packet 2
+            itx.send(Frames::Ack(&AckFrame {
+                typ: 0,
+                stream_id: 69,
+                frame_id: 2,
+            }))
+            .await
+            .unwrap();
+
+            //send one ACK for packet 4
+            itx.send(Frames::Ack(&AckFrame {
+                typ: 0,
+                stream_id: 69,
+                frame_id: 4,
+            }))
+            .await
+            .unwrap();
+
+            //send one ACK for last packet (5)
+            itx.send(Frames::Ack(&AckFrame {
+                typ: 0,
+                stream_id: 69,
+                frame_id: 5,
+            }))
+            .await
+            .unwrap();
+
+            let mut rec = String::new();
+
+            //start handler
+            match stream_handler(irx, otx).await {
+                Ok(_) => {
+                    //receive one ACK and three data frames + EOF, check whether contents are correct
+                    let f1 = orx.next().await.unwrap();
+                    let fh1 = f1.header();
+
+                    match fh1 {
+                        Frames::Ack(a) => {
+                            let afid = a.frame_id;
+                            let reqfid = 1;
+                            assert_eq!(afid, reqfid);
+
+                            let asid = a.stream_id;
+                            let reqsid = 69;
+                            assert_eq!(asid, reqsid);
+                        }
+                        _ => {
+                            assert!(false)
+                        }
+                    }
+
+                    let f2 = orx.next().await.unwrap();
+                    let fh2 = f2.header();
+
+                    match fh2 {
+                        Frames::Data(d) => rec.push_str(str::from_utf8(d.payload).unwrap()),
+                        _ => {
+                            assert!(false)
+                        }
+                    }
+
+                    let f3 = orx.next().await.unwrap();
+                    let fh3 = f3.header();
+
+                    match fh3 {
+                        Frames::Data(d) => rec.push_str(str::from_utf8(d.payload).unwrap()),
+                        _ => {
+                            assert!(false)
+                        }
+                    }
+
+                    let f4 = orx.next().await.unwrap();
+                    let fh4 = f4.header();
+
+                    match fh4 {
+                        Frames::Data(d) => rec.push_str(str::from_utf8(d.payload).unwrap()),
+                        _ => {
+                            assert!(false)
+                        }
+                    }
+
+                    //EOF
+                    let f5 = orx.next().await.unwrap();
+                    let fh5 = f5.header();
+
+                    match fh5 {
+                        Frames::Data(d) => {
+                            assert_eq!(d.header.length(), 0);
+                        }
+                        _ => {
+                            assert!(false)
+                        }
+                    }
+
+                    match orx.next().await {
+                        None => {}
+                        Some(_) => {
+                            assert!(false);
+                        }
+                    }
+
+                    //check contents
+                    assert_eq!(rec.as_str(), file_text);
                 }
                 Err(_) => {
                     assert!(false);
