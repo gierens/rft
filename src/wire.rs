@@ -348,6 +348,12 @@ fn six_u8_to_u64(array: &[u8; 6]) -> u64 {
     u64::from_be_bytes(result)
 }
 
+fn u64_to_six_u8(value: u64) -> [u8; 6] {
+    let mut result: [u8; 6] = [0; 6];
+    result.copy_from_slice(&value.as_bytes()[2..]);
+    result
+}
+
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
 pub struct DataHeader {
