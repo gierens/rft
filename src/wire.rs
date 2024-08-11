@@ -440,13 +440,79 @@ pub struct ReadHeader {
     pub checksum: u32,
 }
 
-impl ReadHeader {
+pub struct ReadFrame {
+    pub header_bytes: Bytes,
+    pub payload_bytes: Bytes,
+}
+
+impl ReadFrame {
+    const TYPE_ID: u8 = 7;
+
+    pub fn new(stream_id: u16, frame_id: u32, flags: u8, offset: u64, length: u64, checksum: u32, path: &Path) -> Self {
+        let header = ReadHeader {
+            type_id: Self::TYPE_ID,
+            stream_id,
+            frame_id,
+            flags,
+            offset: u64_to_six_u8(offset),
+            length: u64_to_six_u8(length),
+            checksum,
+        };
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
+        let payload_bytes = Bytes::copy_from_slice(path.to_str().expect("Failed to convert path to string").as_bytes());
+        ReadFrame {
+            header_bytes,
+            payload_bytes,
+        }
+    }
+
+    pub fn header(&self) -> &ReadHeader {
+        ReadHeader::ref_from(self.header_bytes.as_ref()).expect("Failed to reference ReadHeader")
+    }
+
+    pub fn typ(&self) -> u8 {
+        self.header().typ
+    }
+
+    pub fn stream_id(&self) -> u16 {
+        self.header().stream_id
+    }
+
+    pub fn frame_id(&self) -> u32 {
+        self.header().frame_id
+    }
+
+    pub fn flags(&self) -> u8 {
+        self.header().flags
+    }
+
     pub fn offset(&self) -> u64 {
-        six_u8_to_u64(&self.offset)
+        six_u8_to_u64(&self.header().offset)
     }
 
     pub fn length(&self) -> u64 {
-        six_u8_to_u64(&self.length)
+        six_u8_to_u64(&self.header().length)
+    }
+
+    pub fn checksum(&self) -> u32 {
+        self.header().checksum
+    }
+
+    pub fn path(&self) -> &Path {
+        Path::new(from_utf8(self.payload_bytes.as_ref()).expect("Failed to parse path"))
+    }
+}
+
+impl Debug for ReadFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Read")
+            .field("stream_id", &self.stream_id())
+            .field("frame_id", &self.frame_id())
+            .field("flags", &self.flags())
+            .field("offset", &self.offset())
+            .field("length", &self.length())
+            .field("checksum", &self.checksum())
+            .finish()
     }
 }
 
