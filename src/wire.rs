@@ -451,8 +451,8 @@ impl DataFrame {
         DataHeader::ref_from(self.header_bytes.as_ref()).expect("Failed to reference DataHeader")
     }
 
-    pub fn typ(&self) -> u8 {
-        self.header().typ
+    pub fn type_id(&self) -> u8 {
+        self.header().type_id
     }
 
     pub fn stream_id(&self) -> u16 {
@@ -507,7 +507,7 @@ impl Debug for DataFrame {
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
 pub struct ReadHeader {
-    pub typ: u8,
+    pub type_id: u8,
     pub stream_id: u16,
     pub frame_id: u32,
     pub flags: u8,
@@ -546,8 +546,8 @@ impl ReadFrame {
         ReadHeader::ref_from(self.header_bytes.as_ref()).expect("Failed to reference ReadHeader")
     }
 
-    pub fn typ(&self) -> u8 {
-        self.header().typ
+    pub fn type_id(&self) -> u8 {
+        self.header().type_id
     }
 
     pub fn stream_id(&self) -> u16 {
@@ -641,8 +641,8 @@ impl WriteFrame {
         WriteHeader::ref_from(self.header_bytes.as_ref()).expect("Failed to reference WriteHeader")
     }
 
-    pub fn typ(&self) -> u8 {
-        self.header().typ
+    pub fn type_id(&self) -> u8 {
+        self.header().type_id
     }
 
     pub fn stream_id(&self) -> u16 {
@@ -723,8 +723,8 @@ impl ChecksumFrame {
         ChecksumHeader::ref_from(self.header_bytes.as_ref()).expect("Failed to reference ChecksumHeader")
     }
 
-    pub fn typ(&self) -> u8 {
-        self.header().typ
+    pub fn type_id(&self) -> u8 {
+        self.header().type_id
     }
 
     pub fn stream_id(&self) -> u16 {
@@ -795,8 +795,8 @@ impl StatFrame {
         StatHeader::ref_from(self.header_bytes.as_ref()).expect("Failed to reference StatHeader")
     }
 
-    pub fn typ(&self) -> u8 {
-        self.header().typ
+    pub fn type_id(&self) -> u8 {
+        self.header().type_id
     }
 
     pub fn stream_id(&self) -> u16 {
@@ -867,8 +867,8 @@ impl ListFrame {
         ListHeader::ref_from(self.header_bytes.as_ref()).expect("Failed to reference ListHeader")
     }
 
-    pub fn typ(&self) -> u8 {
-        self.header().typ
+    pub fn type_id(&self) -> u8 {
+        self.header().type_id
     }
 
     pub fn stream_id(&self) -> u16 {
