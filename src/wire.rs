@@ -1244,8 +1244,16 @@ mod tests {
 
     #[test]
     fn test_six_u8_to_u64() {
-        let array: [u8; 6] = [1, 2, 3, 4, 5, 6];
-        assert_eq!(six_u8_to_u64(&array), 0x010203040506);
+        let array: [u8; 6] = [6, 5, 4, 3, 2, 1];
+        let value = 0x010203040506;
+        assert_eq!(six_u8_to_u64(&array), value);
+    }
+
+    #[test]
+    fn test_u64_to_six_u8() {
+        let value = 0x010203040506;
+        let array: [u8; 6] = [6, 5, 4, 3, 2, 1];
+        assert_eq!(u64_to_six_u8(value), array);
     }
 
     #[test]
@@ -1259,26 +1267,18 @@ mod tests {
     }
 
     #[test]
-    fn test_data_header_offset_and_length() {
-        let header = DataHeader {
-            typ: 0,
-            stream_id: 1,
-            frame_id: 2,
-            offset: [1, 2, 3, 4, 5, 6],
-            length: [6, 5, 4, 3, 2, 1],
-        };
-        assert_eq!(header.offset(), 0x0000010203040506);
-        assert_eq!(header.length(), 0x0000060504030201);
+    fn test_data_fields() {
+        let frame = DataFrame::new(1, 2, 3, 4, Bytes::from_static(&[1, 2, 3, 4]));
+        assert_eq!(frame.stream_id(), 1);
+        assert_eq!(frame.frame_id(), 2);
+        assert_eq!(frame.offset(), 3);
+        assert_eq!(frame.length(), 4);
+        assert_eq!(frame.payload(), &Bytes::from_static(&[1, 2, 3, 4]));
     }
 
     #[test]
     fn test_assemble_empty_packet() {
-        let packet_header = PacketHeader {
-            version: 1,
-            connection_id: 2,
-            checksum: [3, 4, 5],
-        };
-        let packet = Packet::new(packet_header);
+        let packet = Packet::new(2);
         assert_eq!(
             packet.assemble(),
             Bytes::from_static(&[1, 2, 0, 0, 0, 0xde, 0xce, 0x17])
@@ -1287,18 +1287,9 @@ mod tests {
 
     #[test]
     fn test_validate_checksum() {
-        let header = PacketHeader {
-            version: 1,
-            connection_id: 420,
-            checksum: [0, 0, 0],
-        };
-        let mut packet = Packet::new(header);
-        let frame = Frame::from(AckFrame {
-            typ: 0,
-            stream_id: 1,
-            frame_id: 1,
-        });
-        packet.add_frame(frame);
+        let mut packet = Packet::new(420);
+        let frame = AckFrame::new(1, 1);
+        packet.add_frame(frame.into());
 
         let mut bytes = packet.assemble();
         bytes[5] = 0;
@@ -1314,52 +1305,22 @@ mod tests {
 
     #[test]
     fn test_packet_assemble() {
-        let header = PacketHeader {
-            version: 1,
-            connection_id: 420,
-            checksum: [0, 0, 0],
-        };
-        let mut packet = Packet::new(header);
-        let frame = Frame::from(AckFrame {
-            typ: 0,
-            stream_id: 1,
-            frame_id: 1,
-        });
-        packet.add_frame(frame);
+        let mut packet = Packet::new(420);
+        let frame = AckFrame::new(1, 1);
+        packet.add_frame(frame.into());
         let assembled = packet.assemble();
         assert_eq!(
             assembled.len(),
-            size_of::<PacketHeader>() + size_of::<AckFrame>()
+            size_of::<PacketHeader>() + size_of::<AckHeader>()
         );
     }
 
     #[test]
     fn test_assemble_and_parse_packet() {
-        let packet_header = PacketHeader {
-            version: 1,
-            connection_id: 1,
-            checksum: [0x3a, 0x9c, 0x4b],
-        };
-        let mut packet1 = Packet::new(packet_header);
+        let mut packet1 = Packet::new(1);
+        // packet1.add_frame(AckFrame::new(1, 1).into());
         packet1.add_frame(
-            AckFrame {
-                typ: 0,
-                frame_id: 1,
-                stream_id: 1,
-            }
-            .into(),
-        );
-        packet1.add_frame(
-            AnswerFrameNew {
-                header: &AnswerHeader {
-                    typ: 4,
-                    stream_id: 1,
-                    frame_id: 2,
-                    command_frame_id: 3,
-                },
-                payload: bytes::Bytes::from(vec![1, 2, 3, 4, 5, 6, 7, 8]),
-            }
-            .into(),
+            AnswerFrame::new(1, 2, 3, vec![1, 2, 3, 4, 5, 6, 7, 8].into()).into(),
         );
         let bytes1 = packet1.assemble();
         let packet2 = Packet::parse(bytes1.clone().into()).expect("Parsing failed");
@@ -1369,12 +1330,7 @@ mod tests {
 
     #[test]
     fn test_assemble_and_parse_simple_packet() {
-        let packet_header = PacketHeader {
-            version: 1,
-            connection_id: 1,
-            checksum: [0x3a, 0x9c, 0x4b],
-        };
-        let packet1 = Packet::new(packet_header);
+        let packet1 = Packet::new(1);
         let bytes1 = packet1.assemble();
         let packet2 = Packet::parse(bytes1.clone().into()).expect("Parsing failed");
         let bytes2 = packet2.assemble();
