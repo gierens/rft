@@ -72,6 +72,12 @@ impl Parse for AckFrame {
     }
 }
 
+impl Assemble for AckFrame {
+    fn assemble(&self) -> BytesMut {
+        self.bytes.clone().into()
+    }
+}
+
 impl Debug for AckFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Ack")
@@ -114,6 +120,12 @@ impl Parse for ExitFrame {
         // TODO bounds check
         let bytes = bytes.split_to(size_of::<ExitFrame>());
         Ok(ExitFrame { bytes }.into())
+    }
+}
+
+impl Assemble for ExitFrame {
+    fn assemble(&self) -> BytesMut {
+        self.bytes.clone().into()
     }
 }
 
@@ -174,6 +186,12 @@ impl Parse for ConnIdChangeFrame {
     }
 }
 
+impl Assemble for ConnIdChangeFrame {
+    fn assemble(&self) -> BytesMut {
+        self.bytes.clone().into()
+    }
+}
+
 impl Debug for ConnIdChangeFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let old_cid = self.header().old_cid;
@@ -227,6 +245,12 @@ impl Parse for FlowControlFrame {
         // TODO bounds check
         let bytes = bytes.split_to(size_of::<FlowControlFrame>());
         Ok(FlowControlFrame { bytes }.into())
+    }
+}
+
+impl Assemble for FlowControlFrame {
+    fn assemble(&self) -> BytesMut {
+        self.bytes.clone().into()
     }
 }
 
@@ -309,6 +333,15 @@ impl Parse for AnswerFrame {
     }
 }
 
+impl Assemble for AnswerFrame {
+    fn assemble(&self) -> BytesMut {
+        let mut bytes = BytesMut::from(self.header_bytes.clone());
+        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes());
+        bytes.extend_from_slice(&self.payload_bytes);
+        bytes
+    }
+}
+
 impl Debug for AnswerFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Answer")
@@ -384,10 +417,16 @@ impl Parse for ErrorFrame {
         let length_bytes = bytes.split_to(2);
         let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
-        Ok(ErrorFrame {
-            header_bytes,
-            payload_bytes,
-        }.into())
+        Ok(ErrorFrame { header_bytes, payload_bytes }.into())
+    }
+}
+
+impl Assemble for ErrorFrame {
+    fn assemble(&self) -> BytesMut {
+        let mut bytes = BytesMut::from(self.header_bytes.clone());
+        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes());
+        bytes.extend_from_slice(&self.payload_bytes);
+        bytes
     }
 }
 
@@ -432,13 +471,13 @@ pub struct DataFrame {
 impl DataFrame {
     const TYPE_ID: u8 = 6;
 
-    pub fn new(stream_id: u16, frame_id: u32, offset: u64, payload: Bytes) -> Self {
+    pub fn new(stream_id: u16, frame_id: u32, offset: u64, length: u64, payload: Bytes) -> Self {
         let header = DataHeader {
             type_id: Self::TYPE_ID,
             stream_id,
             frame_id,
-            offset: offset.to_be_bytes(),
-            length: payload.len() as u64.to_be_bytes(),
+            offset: u64_to_six_u8(offset),
+            length: u64_to_six_u8(length),
         };
         let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
         DataFrame {
@@ -489,6 +528,15 @@ impl Parse for DataFrame {
             | (header.length[2] as usize) << 16;
         let payload_bytes = bytes.split_to(payload_length);
         Ok(DataFrame { header_bytes, payload_bytes }.into())
+    }
+}
+
+impl Assemble for DataFrame {
+    fn assemble(&self) -> BytesMut {
+        let mut bytes = BytesMut::from(self.header_bytes.clone());
+        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes());
+        bytes.extend_from_slice(&self.payload_bytes);
+        bytes
     }
 }
 
@@ -587,6 +635,15 @@ impl Parse for ReadFrame {
         let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
         Ok(ReadFrame { header_bytes, payload_bytes }.into())
+    }
+}
+
+impl Assemble for ReadFrame {
+    fn assemble(&self) -> BytesMut {
+        let mut bytes = BytesMut::from(self.header_bytes.clone());
+        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes());
+        bytes.extend_from_slice(&self.payload_bytes);
+        bytes
     }
 }
 
@@ -751,6 +808,15 @@ impl Parse for ChecksumFrame {
     }
 }
 
+impl Assemble for ChecksumFrame {
+    fn assemble(&self) -> BytesMut {
+        let mut bytes = BytesMut::from(self.header_bytes.clone());
+        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes());
+        bytes.extend_from_slice(&self.payload_bytes);
+        bytes
+    }
+}
+
 impl Debug for ChecksumFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Checksum")
@@ -820,6 +886,15 @@ impl Parse for StatFrame {
         let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
         Ok(StatFrame { header_bytes, payload_bytes }.into())
+    }
+}
+
+impl Assemble for StatFrame {
+    fn assemble(&self) -> BytesMut {
+        let mut bytes = BytesMut::from(self.header_bytes.clone());
+        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes());
+        bytes.extend_from_slice(&self.payload_bytes);
+        bytes
     }
 }
 
@@ -895,6 +970,15 @@ impl Parse for ListFrame {
     }
 }
 
+impl Assemble for ListFrame {
+    fn assemble(&self) -> BytesMut {
+        let mut bytes = BytesMut::from(self.header_bytes.clone());
+        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes());
+        bytes.extend_from_slice(&self.payload_bytes);
+        bytes
+    }
+}
+
 impl Debug for ListFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("List")
@@ -910,6 +994,11 @@ trait Parse {
     fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error>
     where
         Self: Sized;
+}
+
+#[allow(dead_code)]
+trait Assemble {
+    fn assemble(&self) -> BytesMut;
 }
 
 pub struct Packet {
@@ -1004,16 +1093,13 @@ impl Packet {
     pub fn add_frame(&mut self, frame: Frame) {
         self.frames.push(frame);
     }
+}
 
-    pub fn assemble(&self) -> BytesMut {
+impl Assemble for Packet {
+    fn assemble(&self) -> BytesMut {
         let mut bytes: BytesMut = self.header_bytes.clone().into();
         for frame in &self.frames {
-            bytes.extend_from_slice(&frame.header_bytes);
-            if let Some(payload_bytes) = &frame.payload_bytes {
-                let payload_length = payload_bytes.len() as u16;
-                bytes.extend_from_slice(&payload_length.to_le_bytes());
-                bytes.extend_from_slice(payload_bytes);
-            }
+            bytes.extend_from_slice(&frame.assemble());
         }
         bytes[5] = 0;
         bytes[6] = 0;
@@ -1056,6 +1142,25 @@ impl Debug for Frame {
             Frame::Checksum(frame) => frame.fmt(f),
             Frame::Stat(frame) => frame.fmt(f),
             Frame::List(frame) => frame.fmt(f),
+        }
+    }
+}
+
+impl Assemble for Frame {
+    fn assemble(&self) -> BytesMut {
+        match self {
+            Frame::Ack(frame) => frame.assemble(),
+            Frame::Exit(frame) => frame.assemble(),
+            Frame::ConnIdChange(frame) => frame.assemble(),
+            Frame::FlowControl(frame) => frame.assemble(),
+            Frame::Answer(frame) => frame.assemble(),
+            Frame::Error(frame) => frame.assemble(),
+            Frame::Data(frame) => frame.assemble(),
+            Frame::Read(frame) => frame.assemble(),
+            Frame::Write(frame) => frame.assemble(),
+            Frame::Checksum(frame) => frame.assemble(),
+            Frame::Stat(frame) => frame.assemble(),
+            Frame::List(frame) => frame.assemble(),
         }
     }
 }
