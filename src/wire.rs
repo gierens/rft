@@ -357,20 +357,74 @@ fn u64_to_six_u8(value: u64) -> [u8; 6] {
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
 pub struct DataHeader {
-    pub typ: u8,
+    pub type_id: u8,
     pub stream_id: u16,
     pub frame_id: u32,
     pub offset: [u8; 6],
     pub length: [u8; 6],
 }
 
-impl DataHeader {
+pub struct DataFrame {
+    pub header_bytes: Bytes,
+    pub payload_bytes: Bytes,
+}
+
+impl DataFrame {
+    const TYPE_ID: u8 = 6;
+
+    pub fn new(stream_id: u16, frame_id: u32, offset: u64, payload: Bytes) -> Self {
+        let header = DataHeader {
+            type_id: Self::TYPE_ID,
+            stream_id,
+            frame_id,
+            offset: offset.to_be_bytes(),
+            length: payload.len() as u64.to_be_bytes(),
+        };
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
+        DataFrame {
+            header_bytes,
+            payload_bytes: payload,
+        }
+    }
+
+    pub fn header(&self) -> &DataHeader {
+        DataHeader::ref_from(self.header_bytes.as_ref()).expect("Failed to reference DataHeader")
+    }
+
+    pub fn typ(&self) -> u8 {
+        self.header().typ
+    }
+
+    pub fn stream_id(&self) -> u16 {
+        self.header().stream_id
+    }
+
+    pub fn frame_id(&self) -> u32 {
+        self.header().frame_id
+    }
+
     pub fn offset(&self) -> u64 {
-        six_u8_to_u64(&self.offset)
+        six_u8_to_u64(&self.header().offset)
     }
 
     pub fn length(&self) -> u64 {
-        six_u8_to_u64(&self.length)
+        six_u8_to_u64(&self.header().length)
+    }
+
+    pub fn payload(&self) -> &Bytes {
+        &self.payload_bytes
+    }
+}
+
+impl Debug for DataFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Data")
+            .field("stream_id", &self.stream_id())
+            .field("frame_id", &self.frame_id())
+            .field("offset", &self.offset())
+            .field("length", &self.length())
+            .field("payload", &self.payload())
+            .finish()
     }
 }
 
