@@ -75,8 +75,36 @@ impl Debug for AckFrame {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
+pub struct ExitHeader {
+    pub type_id: u8,
+}
+
 pub struct ExitFrame {
-    pub typ: u8,
+    bytes: Bytes,
+}
+
+impl ExitFrame {
+    const TYPE_ID: u8 = 1;
+
+    pub fn new() -> Self {
+        let header = ExitHeader { type_id: Self::TYPE_ID };
+        let bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
+        ExitFrame { bytes }
+    }
+
+    pub fn header(&self) -> &ExitHeader {
+        ExitHeader::ref_from(self.bytes.as_ref()).expect("Failed to reference ExitHeader")
+    }
+
+    pub fn type_id(&self) -> u8 {
+        self.header().type_id
+    }
+}
+
+impl Debug for ExitFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Exit").finish()
+    }
 }
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
