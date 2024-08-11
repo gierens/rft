@@ -59,7 +59,7 @@ where
                                     cmd.stream_id(),
                                     cmd.frame_id(),
                                     frame_number,
-                                    "Invalid Payload".into(),
+                                    "Invalid Payload",
                                 )
                                 .into(),
                             )
@@ -170,7 +170,7 @@ where
                                                     cmd.stream_id(),
                                                     af_frame_id,
                                                     frame_number,
-                                                    "ACK'd frame number inconsistency".into(),
+                                                    "ACK'd frame number inconsistency",
                                                 )
                                                 .into(),
                                             )
@@ -189,7 +189,7 @@ where
                                             cmd.stream_id(),
                                             cmd.frame_id(),
                                             frame_number,
-                                            "Timeout".into(),
+                                            "Timeout",
                                         )
                                         .into(),
                                     )
@@ -205,7 +205,7 @@ where
                                             cmd.stream_id(),
                                             cmd.frame_id(),
                                             frame_number,
-                                            "Illegal Frame Received".into(),
+                                            "Illegal Frame Received",
                                         )
                                         .into(),
                                     )
@@ -266,7 +266,7 @@ where
                                     cmd.stream_id(),
                                     cmd.frame_id(),
                                     frame_number,
-                                    "Invalid Payload".into(),
+                                    "Invalid Payload",
                                 )
                                 .into(),
                             )
@@ -311,7 +311,7 @@ where
                                 cmd.stream_id(),
                                 cmd.frame_id(),
                                 frame_number,
-                                "Write offset does not match file size".into(),
+                                "Write offset does not match file size",
                             )
                             .into(),
                         )
@@ -342,7 +342,7 @@ where
                                         cmd.stream_id(),
                                         last_frame_id,
                                         frame_number,
-                                        "Timeout".into(),
+                                        "Timeout",
                                     )
                                     .into(),
                                 )
@@ -404,7 +404,7 @@ where
                                     cmd.stream_id(),
                                     cmd.frame_id(),
                                     frame_number,
-                                    "Illegal Frame Received".into(),
+                                    "Illegal Frame Received",
                                 )
                                 .into(),
                             )
@@ -455,7 +455,7 @@ where
                                     cmd.stream_id(),
                                     cmd.frame_id(),
                                     1,
-                                    "Invalid Payload".into(),
+                                    "Invalid Payload",
                                 )
                                 .into(),
                             )
@@ -470,13 +470,8 @@ where
 
                 Frame::Stat(cmd) => {
                     sink.send(
-                        ErrorFrame::new(
-                            cmd.stream_id(),
-                            cmd.frame_id(),
-                            1,
-                            "Not implemented".into(),
-                        )
-                        .into(),
+                        ErrorFrame::new(cmd.stream_id(), cmd.frame_id(), 1, "Not implemented")
+                            .into(),
                     )
                     .await
                     .expect("stream_handler: could not send response");
@@ -485,13 +480,8 @@ where
 
                 Frame::List(cmd) => {
                     sink.send(
-                        ErrorFrame::new(
-                            cmd.stream_id(),
-                            cmd.frame_id(),
-                            1,
-                            "Not implemented".into(),
-                        )
-                        .into(),
+                        ErrorFrame::new(cmd.stream_id(), cmd.frame_id(), 1, "Not implemented")
+                            .into(),
                     )
                     .await
                     .expect("stream_handler: could not send response");
