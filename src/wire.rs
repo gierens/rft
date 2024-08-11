@@ -109,10 +109,56 @@ impl Debug for ExitFrame {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
-pub struct ConnIdChangeFrame {
-    pub typ: u8,
+pub struct ConnIdChangeHeader {
+    pub type_id: u8,
     pub old_cid: u32,
     pub new_cid: u32,
+}
+
+pub struct ConnIdChangeFrame {
+    bytes: Bytes,
+}
+
+impl ConnIdChangeFrame {
+    const TYPE_ID: u8 = 2;
+
+    pub fn new(old_cid: u32, new_cid: u32) -> Self {
+        let header = ConnIdChangeHeader {
+            type_id: Self::TYPE_ID,
+            old_cid,
+            new_cid,
+        };
+        let bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
+        ConnIdChangeFrame { bytes }
+    }
+
+    pub fn header(&self) -> &ConnIdChangeHeader {
+        ConnIdChangeHeader::ref_from(self.bytes.as_ref())
+            .expect("Failed to reference ConnIdChangeHeader")
+    }
+
+    pub fn type_id(&self) -> u8 {
+        self.header().type_id
+    }
+
+    pub fn old_cid(&self) -> u32 {
+        self.header().old_cid
+    }
+
+    pub fn new_cid(&self) -> u32 {
+        self.header().new_cid
+    }
+}
+
+impl Debug for ConnIdChangeFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let old_cid = self.header().old_cid;
+        let new_cid = self.header().new_cid;
+        f.debug_struct("ConnIdChange")
+            .field("old_cid", &old_cid)
+            .field("new_cid", &new_cid)
+            .finish()
+    }
 }
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
