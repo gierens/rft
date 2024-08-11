@@ -297,7 +297,7 @@ impl AnswerFrame {
             .expect("Failed to reference AnswerHeader")
     }
 
-    pub fn typ(&self) -> u8 {
+    pub fn type_id(&self) -> u8 {
         self.header().type_id
     }
 
