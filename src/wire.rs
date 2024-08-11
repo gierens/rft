@@ -163,9 +163,47 @@ impl Debug for ConnIdChangeFrame {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
-pub struct FlowControlFrame {
-    pub typ: u8,
+pub struct FlowControlHeader {
+    pub type_id: u8,
     pub window_size: u32,
+}
+
+pub struct FlowControlFrame {
+    bytes: Bytes,
+}
+
+impl FlowControlFrame {
+    const TYPE_ID: u8 = 3;
+
+    pub fn new(window_size: u32) -> Self {
+        let header = FlowControlHeader {
+            type_id: Self::TYPE_ID,
+            window_size,
+        };
+        let bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
+        FlowControlFrame { bytes }
+    }
+
+    pub fn header(&self) -> &FlowControlHeader {
+        FlowControlHeader::ref_from(self.bytes.as_ref())
+            .expect("Failed to reference FlowControlHeader")
+    }
+
+    pub fn type_id(&self) -> u8 {
+        self.header().type_id
+    }
+
+    pub fn window_size(&self) -> u32 {
+        self.header().window_size
+    }
+}
+
+impl Debug for FlowControlFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FlowControl")
+            .field("window_size", &self.window_size())
+            .finish()
+    }
 }
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
