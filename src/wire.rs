@@ -442,13 +442,13 @@ impl Debug for ErrorFrame {
 
 fn six_u8_to_u64(array: &[u8; 6]) -> u64 {
     let mut result: [u8; 8] = [0; 8];
-    result[2..].copy_from_slice(array);
-    u64::from_be_bytes(result)
+    result[..6].copy_from_slice(array);
+    u64::from_le_bytes(result)
 }
 
 fn u64_to_six_u8(value: u64) -> [u8; 6] {
     let mut result: [u8; 6] = [0; 6];
-    result.copy_from_slice(&value.as_bytes()[2..]);
+    result.copy_from_slice(&value.as_bytes()[..6]);
     result
 }
 
