@@ -1,7 +1,7 @@
 use crate::loss_simulation::LossSimulation;
 use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
 use std::path::PathBuf;
-use crate::wire::Packet;
+use crate::wire::{Packet, Assemble};
 
 pub struct Client {
     #[allow(dead_code)]
@@ -18,7 +18,7 @@ impl Client {
         socket
             .connect(SocketAddrV4::new(host, port))
             .expect("Failed to connect to server");
-        let packet = Packet::create(0);
+        let packet = Packet::new(0);
         let bytes = packet.assemble();
         socket.send(&bytes).expect("Failed to send data");
     }
