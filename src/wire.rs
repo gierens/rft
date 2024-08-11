@@ -1026,77 +1026,37 @@ impl Packet {
     }
 }
 
-#[derive(Debug)]
-pub enum Frames<'a> {
-    Ack(&'a AckFrame),
-    Exit(&'a ExitFrame),
-    ConnIdChange(&'a ConnIdChangeFrame),
-    FlowControl(&'a FlowControlFrame),
-    Answer(AnswerFrame<'a>),
-    Error(ErrorFrame<'a>),
-    Data(DataFrame<'a>),
-    Read(ReadFrame<'a>),
-    Write(WriteFrame<'a>),
-    Checksum(ChecksumFrame<'a>),
-    Stat(StatFrame<'a>),
-    List(ListFrame<'a>),
-}
-
-pub struct Frame {
-    header_bytes: Bytes,
-    payload_bytes: Option<Bytes>,
+pub enum Frame {
+    Ack(AckFrame),
+    Exit(ExitFrame),
+    ConnIdChange(ConnIdChangeFrame),
+    FlowControl(FlowControlFrame),
+    Answer(AnswerFrame),
+    Error(ErrorFrame),
+    Data(DataFrame),
+    Read(ReadFrame),
+    Write(WriteFrame),
+    Checksum(ChecksumFrame),
+    Stat(StatFrame),
+    List(ListFrame),
 }
 
 impl Debug for Frame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.header() {
-            Frames::Ack(frame) => frame.fmt(f),
-            Frames::Exit(frame) => frame.fmt(f),
-            Frames::ConnIdChange(frame) => frame.fmt(f),
-            Frames::FlowControl(frame) => frame.fmt(f),
-            Frames::Answer(frame) => frame.fmt(f),
-            Frames::Error(frame) => frame.fmt(f),
-            Frames::Data(frame) => frame.fmt(f),
-            Frames::Read(frame) => frame.fmt(f),
-            Frames::Write(frame) => frame.fmt(f),
-            Frames::Checksum(frame) => frame.fmt(f),
-            Frames::Stat(frame) => frame.fmt(f),
-            Frames::List(frame) => frame.fmt(f),
+        match self {
+            Frame::Ack(frame) => frame.fmt(f),
+            Frame::Exit(frame) => frame.fmt(f),
+            Frame::ConnIdChange(frame) => frame.fmt(f),
+            Frame::FlowControl(frame) => frame.fmt(f),
+            Frame::Answer(frame) => frame.fmt(f),
+            Frame::Error(frame) => frame.fmt(f),
+            Frame::Data(frame) => frame.fmt(f),
+            Frame::Read(frame) => frame.fmt(f),
+            Frame::Write(frame) => frame.fmt(f),
+            Frame::Checksum(frame) => frame.fmt(f),
+            Frame::Stat(frame) => frame.fmt(f),
+            Frame::List(frame) => frame.fmt(f),
         }
-    }
-}
-
-impl<'a> Frame {
-    fn code(&self) -> u8 {
-        self.header_bytes[0]
-    }
-
-    pub fn header(&'a self) -> Frames<'a> {
-        match self.code() {
-            0 => Frames::Ack(self.into()),
-            1 => Frames::Exit(self.into()),
-            2 => Frames::ConnIdChange(self.into()),
-            3 => Frames::FlowControl(self.into()),
-            4 => Frames::Answer(self.into()),
-            5 => Frames::Error(self.into()),
-            6 => Frames::Data(self.into()),
-            7 => Frames::Read(self.into()),
-            8 => Frames::Write(self.into()),
-            9 => Frames::Checksum(self.into()),
-            10 => Frames::Stat(self.into()),
-            11 => Frames::List(self.into()),
-            _ => panic!("Unknown frame type"),
-        }
-    }
-
-    pub fn payload(&self) -> Option<&Bytes> {
-        self.payload_bytes.as_ref()
-    }
-}
-
-impl<'a> From<&'a Frame> for &'a AckFrame {
-    fn from(frame: &'a Frame) -> Self {
-        AckFrame::ref_from(frame.header_bytes.as_ref()).expect("Failed to reference AckFrame")
     }
 }
 
