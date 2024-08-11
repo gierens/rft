@@ -109,6 +109,8 @@ where
                     let metadata = fs::metadata(path.clone()).expect("Could not get file metadata");
                     let file_size = metadata.len();
 
+                    //TODO: actually stop reading at cmd.header.length()
+
                     //move cursor to offset
                     //TODO: may have to check manually if offset is past file size ??
                     let mut reader = BufReader::new(file);
@@ -295,6 +297,7 @@ where
                     };
 
                     //create / open file
+                    //TODO: use cmd-header.length() to check if enough disk space available
                     let file: File = match OpenOptions::new()
                         .write(true)
                         .create(true)
