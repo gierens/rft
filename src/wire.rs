@@ -335,7 +335,7 @@ impl Parse for AnswerFrame {
 impl Assemble for AnswerFrame {
     fn assemble(&self) -> BytesMut {
         let mut bytes = BytesMut::from(self.header_bytes.clone());
-        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes());
+        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes()[..2]);
         bytes.extend_from_slice(&self.payload_bytes);
         bytes
     }
@@ -423,7 +423,7 @@ impl Parse for ErrorFrame {
 impl Assemble for ErrorFrame {
     fn assemble(&self) -> BytesMut {
         let mut bytes = BytesMut::from(self.header_bytes.clone());
-        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes());
+        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes()[..2]);
         bytes.extend_from_slice(&self.payload_bytes);
         bytes
     }
@@ -533,7 +533,7 @@ impl Parse for DataFrame {
 impl Assemble for DataFrame {
     fn assemble(&self) -> BytesMut {
         let mut bytes = BytesMut::from(self.header_bytes.clone());
-        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes());
+        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes()[..2]);
         bytes.extend_from_slice(&self.payload_bytes);
         bytes
     }
@@ -640,7 +640,7 @@ impl Parse for ReadFrame {
 impl Assemble for ReadFrame {
     fn assemble(&self) -> BytesMut {
         let mut bytes = BytesMut::from(self.header_bytes.clone());
-        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes());
+        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes()[..2]);
         bytes.extend_from_slice(&self.payload_bytes);
         bytes
     }
@@ -733,6 +733,15 @@ impl Parse for WriteFrame {
     }
 }
 
+impl Assemble for WriteFrame {
+    fn assemble(&self) -> BytesMut {
+        let mut bytes = BytesMut::from(self.header_bytes.clone());
+        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes()[..2]);
+        bytes.extend_from_slice(&self.payload_bytes);
+        bytes
+    }
+}
+
 impl Debug for WriteFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Write")
@@ -810,7 +819,7 @@ impl Parse for ChecksumFrame {
 impl Assemble for ChecksumFrame {
     fn assemble(&self) -> BytesMut {
         let mut bytes = BytesMut::from(self.header_bytes.clone());
-        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes());
+        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes()[..2]);
         bytes.extend_from_slice(&self.payload_bytes);
         bytes
     }
@@ -891,7 +900,7 @@ impl Parse for StatFrame {
 impl Assemble for StatFrame {
     fn assemble(&self) -> BytesMut {
         let mut bytes = BytesMut::from(self.header_bytes.clone());
-        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes());
+        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes()[..2]);
         bytes.extend_from_slice(&self.payload_bytes);
         bytes
     }
@@ -972,7 +981,7 @@ impl Parse for ListFrame {
 impl Assemble for ListFrame {
     fn assemble(&self) -> BytesMut {
         let mut bytes = BytesMut::from(self.header_bytes.clone());
-        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes());
+        bytes.extend_from_slice(&self.payload_bytes.len().to_le_bytes()[..2]);
         bytes.extend_from_slice(&self.payload_bytes);
         bytes
     }
