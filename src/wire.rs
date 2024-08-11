@@ -716,9 +716,62 @@ impl Debug for StatFrame {
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
 pub struct ListHeader {
-    pub typ: u8,
+    pub type_id: u8,
     pub stream_id: u16,
     pub frame_id: u32,
+}
+
+pub struct ListFrame {
+    pub header_bytes: Bytes,
+    pub payload_bytes: Bytes,
+}
+
+impl ListFrame {
+    const TYPE_ID: u8 = 11;
+
+    pub fn new(stream_id: u16, frame_id: u32, path: &Path) -> Self {
+        let header = ListHeader {
+            type_id: Self::TYPE_ID,
+            stream_id,
+            frame_id,
+        };
+        let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
+        let payload_bytes = Bytes::copy_from_slice(path.to_str().expect("Failed to convert path to string").as_bytes());
+        ListFrame {
+            header_bytes,
+            payload_bytes,
+        }
+    }
+
+    pub fn header(&self) -> &ListHeader {
+        ListHeader::ref_from(self.header_bytes.as_ref()).expect("Failed to reference ListHeader")
+    }
+
+    pub fn typ(&self) -> u8 {
+        self.header().typ
+    }
+
+    pub fn stream_id(&self) -> u16 {
+        self.header().stream_id
+    }
+
+    pub fn frame_id(&self) -> u32 {
+        self.header().frame_id
+    }
+
+    pub fn path(&self) -> &Path {
+        Path::new(from_utf8(self.payload_bytes.as_ref()).expect("Failed to parse path"))
+    }
+}
+
+impl Debug for ListFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("List")
+            .field("stream_id", &self.stream_id())
+            .field("frame_id", &self.frame_id())
+            .field("path", &self.path())
+            .finish()
+    }
 }
 
 #[allow(dead_code)]
