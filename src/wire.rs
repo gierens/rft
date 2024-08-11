@@ -459,7 +459,6 @@ pub struct DataHeader {
     pub stream_id: u16,
     pub frame_id: u32,
     pub offset: [u8; 6],
-    pub length: [u8; 6],
 }
 
 pub struct DataFrame {
@@ -470,13 +469,12 @@ pub struct DataFrame {
 impl DataFrame {
     const TYPE_ID: u8 = 6;
 
-    pub fn new(stream_id: u16, frame_id: u32, offset: u64, length: u64, payload: Bytes) -> Self {
+    pub fn new(stream_id: u16, frame_id: u32, offset: u64, payload: Bytes) -> Self {
         let header = DataHeader {
             type_id: Self::TYPE_ID,
             stream_id,
             frame_id,
             offset: u64_to_six_u8(offset),
-            length: u64_to_six_u8(length),
         };
         let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
         DataFrame {
@@ -506,7 +504,7 @@ impl DataFrame {
     }
 
     pub fn length(&self) -> u64 {
-        six_u8_to_u64(&self.header().length)
+        self.payload_bytes.len() as u64
     }
 
     pub fn payload(&self) -> &Bytes {
@@ -518,13 +516,10 @@ impl Parse for DataFrame {
     fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
         // TODO bounds check
         let header_bytes = bytes.split_to(size_of::<DataHeader>());
-        let header =
-            DataHeader::ref_from(header_bytes.as_ref()).expect("Failed to reference DataHeader");
         // TODO put this into a helper function of the header struct,
         //      or define a custom u24 type
-        let payload_length = header.length[0] as usize
-            | (header.length[1] as usize) << 8
-            | (header.length[2] as usize) << 16;
+        let length_bytes = bytes.split_to(2);
+        let payload_length = length_bytes[0] as usize | (length_bytes[1] as usize) << 8;
         let payload_bytes = bytes.split_to(payload_length);
         Ok(DataFrame { header_bytes, payload_bytes }.into())
     }
@@ -545,7 +540,6 @@ impl Debug for DataFrame {
             .field("stream_id", &self.stream_id())
             .field("frame_id", &self.frame_id())
             .field("offset", &self.offset())
-            .field("length", &self.length())
             .field("payload", &self.payload())
             .finish()
     }
@@ -1268,11 +1262,10 @@ mod tests {
 
     #[test]
     fn test_data_fields() {
-        let frame = DataFrame::new(1, 2, 3, 4, Bytes::from_static(&[1, 2, 3, 4]));
+        let frame = DataFrame::new(1, 2, 3, Bytes::from_static(&[1, 2, 3, 4]));
         assert_eq!(frame.stream_id(), 1);
         assert_eq!(frame.frame_id(), 2);
         assert_eq!(frame.offset(), 3);
-        assert_eq!(frame.length(), 4);
         assert_eq!(frame.payload(), &Bytes::from_static(&[1, 2, 3, 4]));
     }
 
