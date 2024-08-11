@@ -1,14 +1,13 @@
 use crate::wire::{
-    AckFrame, AnswerFrame, AnswerHeader, DataFrame, DataHeader, ErrorFrame, ErrorHeader, Frame,
-    Frames,
+    AckFrame, AnswerFrame, DataFrame, ErrorFrame, Frame,
 };
 use anyhow::{anyhow, Result};
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
-use std::{fs, str};
+use std::fs;
 use tokio::time::timeout;
 
 use ring::digest;
@@ -34,27 +33,8 @@ fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
 }
 
 #[allow(dead_code)]
-fn make_error(stream_id: u16, cmd_frame_id: u32, tx_frame_id: u32, msg: String) -> Frame {
-    let bytes_msg = Bytes::from(msg);
-    let payload_len_be_bytes: &[u8] = &(bytes_msg.len() as u16).to_be_bytes();
-    let mut payload_m = BytesMut::from(payload_len_be_bytes);
-    payload_m.extend(bytes_msg);
-    let payload: Bytes = payload_m.into();
-    ErrorFrame {
-        header: &ErrorHeader {
-            typ: 5,
-            stream_id,
-            frame_id: tx_frame_id,
-            command_frame_id: cmd_frame_id,
-        },
-        payload: &payload,
-    }
-    .into()
-}
-
-#[allow(dead_code)]
 pub async fn stream_handler<S: Sink<Frame> + Unpin>(
-    mut stream: impl Stream<Item = Frames<'_>> + Unpin,
+    mut stream: impl Stream<Item = Frame> + Unpin,
     mut sink: S,
 ) -> anyhow::Result<()>
 where
@@ -64,7 +44,7 @@ where
         None => Ok(()),
         Some(frame) => {
             match frame {
-                Frames::Read(cmd) => {
+                Frame::Read(cmd) => {
                     //for now: just jam frames into pipe until pipe is full or cum. ACK limit reached
                     //TODO: how and where to handle flow control?
 
@@ -72,16 +52,16 @@ where
                     let mut frame_number: u32 = 0;
 
                     //parse path
-                    let path: String = match str::from_utf8(cmd.payload) {
-                        Ok(s) => s.into(),
-                        Err(_) => {
+                    let path: String = match cmd.path().to_str() {
+                        Some(s) => s.into(),
+                        None => {
                             frame_number += 1;
-                            sink.send(make_error(
-                                cmd.header.stream_id,
-                                cmd.header.frame_id,
+                            sink.send(ErrorFrame::new(
+                                cmd.stream_id(),
+                                cmd.frame_id(),
                                 frame_number,
                                 "Invalid Payload".into(),
-                            ))
+                            ).into())
                             .await
                             .expect("stream_handler: could not send response");
                             return Ok(());
@@ -93,12 +73,12 @@ where
                         Ok(f) => f,
                         Err(e) => {
                             frame_number += 1;
-                            sink.send(make_error(
-                                cmd.header.stream_id,
-                                cmd.header.frame_id,
+                            sink.send(ErrorFrame::new(
+                                cmd.stream_id(),
+                                cmd.frame_id(),
                                 frame_number,
-                                e.to_string(),
-                            ))
+                                e.to_string().as_str(),
+                            ).into())
                             .await
                             .expect("stream_handler: could not send response");
                             return Ok(());
@@ -114,16 +94,16 @@ where
                     //move cursor to offset
                     //TODO: may have to check manually if offset is past file size ??
                     let mut reader = BufReader::new(file);
-                    match reader.seek(SeekFrom::Start(cmd.header.offset())) {
+                    match reader.seek(SeekFrom::Start(cmd.offset())) {
                         Ok(_) => {}
                         Err(e) => {
                             frame_number += 1;
-                            sink.send(make_error(
-                                cmd.header.stream_id,
-                                cmd.header.frame_id,
+                            sink.send(ErrorFrame::new(
+                                cmd.stream_id(),
+                                cmd.frame_id(),
                                 frame_number,
-                                e.to_string(),
-                            ))
+                                e.to_string().as_str(),
+                            ).into())
                             .await
                             .expect("stream_handler: could not send response");
                             return Ok(());
@@ -132,11 +112,10 @@ where
 
                     //send ACK for command
                     sink.send(
-                        AckFrame {
-                            typ: 0,
-                            stream_id: cmd.header.stream_id,
-                            frame_id: cmd.header.frame_id,
-                        }
+                        AckFrame::new(
+                            cmd.stream_id(),
+                            cmd.frame_id()
+                        )
                         .into(),
                     )
                     .await
@@ -144,9 +123,9 @@ where
 
                     //read data from file and generate data frames
                     let cum_ack_interval: u32 = 2; //TODO: how to determine cum. ACK interval?
-                    let mut last_offset = cmd.header.offset(); //the first byte not yet sent
+                    let mut last_offset = cmd.offset(); //the first byte not yet sent
                     let mut last_ackd_frame = frame_number;
-                    let mut last_ackd_offset = cmd.header.offset(); //the first not yet ACK'd byte
+                    let mut last_ackd_offset = cmd.offset(); //the first not yet ACK'd byte
 
                     //this buffer includes, for the last x frames sent, up to (exclusive) which offset the frame contained data
                     let mut cum_ack_offset_ringbuf = vec![0u64; cum_ack_interval as usize];
@@ -161,18 +140,18 @@ where
                         {
                             //receive or wait for ACK frame
                             match timeout(Duration::from_secs(5), stream.next()).await {
-                                Ok(Some(Frames::Ack(af))) => {
+                                Ok(Some(Frame::Ack(af))) => {
                                     //check if new ack, double ack, or illegal
-                                    let af_frame_id = af.frame_id;
+                                    let af_frame_id = af.frame_id();
                                     match af_frame_id.cmp(&last_ackd_frame) {
                                         Ordering::Greater => {
                                             //new ACK: advance last ack'd frame id and offset
                                             last_ackd_offset = cum_ack_offset_ringbuf
                                                 [(((ringbuf_head + cum_ack_interval)
-                                                    - (af.frame_id - last_ackd_frame))
+                                                    - (af.frame_id() - last_ackd_frame))
                                                     % cum_ack_interval)
                                                     as usize];
-                                            last_ackd_frame = af.frame_id;
+                                            last_ackd_frame = af.frame_id();
                                         }
                                         Ordering::Equal => {
                                             //double ACK: rewind reader to last ACK'd offset
@@ -185,12 +164,12 @@ where
                                         Ordering::Less => {
                                             //"rewind ACK" ???????
                                             frame_number += 1;
-                                            sink.send(make_error(
-                                                cmd.header.stream_id,
+                                            sink.send(ErrorFrame::new(
+                                                cmd.stream_id(),
                                                 af_frame_id,
                                                 frame_number,
                                                 "ACK'd frame number inconsistency".into(),
-                                            ))
+                                            ).into())
                                             .await
                                             .expect("stream_handler: could not send response");
                                             return Ok(());
@@ -201,12 +180,12 @@ where
                                     //timeout: send error frame, exit
                                     //TODO: retry x times
                                     frame_number += 1;
-                                    sink.send(make_error(
-                                        cmd.header.stream_id,
-                                        cmd.header.frame_id,
+                                    sink.send(ErrorFrame::new(
+                                        cmd.stream_id(),
+                                        cmd.frame_id(),
                                         frame_number,
                                         "Timeout".into(),
-                                    ))
+                                    ).into())
                                     .await
                                     .expect("stream_handler: could not send response");
                                     return Ok(());
@@ -214,12 +193,12 @@ where
                                 _ => {
                                     //other frame received: send error frame, exit
                                     frame_number += 1;
-                                    sink.send(make_error(
-                                        cmd.header.stream_id,
-                                        cmd.header.frame_id,
+                                    sink.send(ErrorFrame::new(
+                                        cmd.stream_id(),
+                                        cmd.frame_id(),
                                         frame_number,
                                         "Illegal Frame Received".into(),
-                                    ))
+                                    ).into())
                                     .await
                                     .expect("stream_handler: could not send response");
                                     return Ok(());
@@ -237,29 +216,11 @@ where
                         let data_size = reader.read(&mut read_buf).expect("file read error");
                         let data_bytes = Bytes::copy_from_slice(&read_buf[..data_size]);
 
-                        //assemble data frame header
-                        let lfd_b8: [u8; 8] = u64::to_be_bytes(data_bytes.len() as u64);
-                        let lfd_b6: [u8; 6] = lfd_b8[2..].try_into().unwrap();
-
-                        let offset_b8: [u8; 8] = u64::to_be_bytes(last_offset);
-                        let offset_b6: [u8; 6] = offset_b8[2..].try_into().unwrap();
-
-                        let data_hdr = DataHeader {
-                            typ: 6,
-                            stream_id: cmd.header.stream_id,
-                            frame_id: (frame_number + 1),
-                            offset: offset_b6,
-                            length: lfd_b6,
-                        };
-
                         //assemble and dispatch data frame
                         {
                             sink.send(
-                                DataFrame {
-                                    header: &data_hdr,
-                                    payload: &data_bytes,
-                                }
-                                .into(),
+                                DataFrame::new(cmd.stream_id(), frame_number + 1, last_offset, data_bytes)
+                                .into()
                             )
                             .await
                             .expect("stream_handler: could not send response");
@@ -277,20 +238,20 @@ where
                     Ok(())
                 }
 
-                Frames::Write(cmd) => {
+                Frame::Write(cmd) => {
                     let mut frame_number = 0; //last used tx frame number
 
                     //parse path
-                    let path: String = match str::from_utf8(cmd.payload) {
-                        Ok(s) => s.into(),
-                        Err(_) => {
+                    let path: String = match cmd.path().to_str() {
+                        Some(s) => s.into(),
+                        None => {
                             frame_number += 1;
-                            sink.send(make_error(
-                                cmd.header.stream_id,
-                                cmd.header.frame_id,
+                            sink.send(ErrorFrame::new(
+                                cmd.stream_id(),
+                                cmd.frame_id(),
                                 frame_number,
                                 "Invalid Payload".into(),
-                            ))
+                            ).into())
                             .await
                             .expect("stream_handler: could not send response");
                             return Ok(());
@@ -308,12 +269,12 @@ where
                         Ok(f) => f,
                         Err(e) => {
                             frame_number += 1;
-                            sink.send(make_error(
-                                cmd.header.stream_id,
-                                cmd.header.frame_id,
+                            sink.send(ErrorFrame::new(
+                                cmd.stream_id(),
+                                cmd.frame_id(),
                                 frame_number,
-                                e.to_string(),
-                            ))
+                                e.to_string().as_str(),
+                            ).into())
                             .await
                             .expect("stream_handler: could not send response");
                             return Ok(());
@@ -322,14 +283,14 @@ where
 
                     //check if file size matches write offset
                     let metadata = fs::metadata(path.clone()).expect("Could not get file metadata");
-                    if metadata.len() != cmd.header.offset() {
+                    if metadata.len() != cmd.offset() {
                         frame_number += 1;
-                        sink.send(make_error(
-                            cmd.header.stream_id,
-                            cmd.header.frame_id,
+                        sink.send(ErrorFrame::new(
+                            cmd.stream_id(),
+                            cmd.frame_id(),
                             frame_number,
                             "Write offset does not match file size".into(),
-                        ))
+                        ).into())
                         .await
                         .expect("stream_handler: could not send response");
                         return Ok(());
@@ -337,11 +298,10 @@ where
 
                     //send ACK for command
                     sink.send(
-                        AckFrame {
-                            typ: 0,
-                            stream_id: cmd.header.stream_id,
-                            frame_id: cmd.header.frame_id,
-                        }
+                        AckFrame::new(
+                            cmd.stream_id(),
+                            cmd.frame_id(),
+                        )
                         .into(),
                     )
                     .await
@@ -349,8 +309,8 @@ where
 
                     //receive Data frames and write to file; stop if transmission complete
                     let mut writer = BufWriter::new(file);
-                    let mut last_offset = cmd.header.offset();
-                    let mut last_frame_id = cmd.header.frame_id;
+                    let mut last_offset = cmd.offset();
+                    let mut last_frame_id = cmd.frame_id();
                     let mut cum_ack_ctr = 0;
                     loop {
                         let next_frame = match timeout(Duration::from_secs(5), stream.next()).await
@@ -359,27 +319,26 @@ where
                             Err(_) => {
                                 //timeout: sed error frame, exit
                                 frame_number += 1;
-                                sink.send(make_error(
-                                    cmd.header.stream_id,
+                                sink.send(ErrorFrame::new(
+                                    cmd.stream_id(),
                                     last_frame_id,
                                     frame_number,
                                     "Timeout".into(),
-                                ))
+                                ).into())
                                 .await
                                 .expect("stream_handler: could not send response");
                                 return Ok(());
                             }
                         };
 
-                        if let Some(Frames::Data(f)) = next_frame {
+                        if let Some(Frame::Data(f)) = next_frame {
                             //empty data frame marks end of transmission
-                            if f.header.length() == 0 {
+                            if f.length() == 0 {
                                 sink.send(
-                                    AckFrame {
-                                        typ: 0,
-                                        stream_id: cmd.header.stream_id,
-                                        frame_id: f.header.frame_id,
-                                    }
+                                    AckFrame::new(
+                                        cmd.stream_id(),
+                                        f.frame_id()
+                                    )
                                     .into(),
                                 )
                                 .await
@@ -388,14 +347,13 @@ where
                             }
 
                             //check if offset matches
-                            if last_offset != f.header.offset() {
+                            if last_offset != f.offset() {
                                 //mismatch -> send double ACK, discard packet
                                 sink.send(
-                                    AckFrame {
-                                        typ: 0,
-                                        stream_id: cmd.header.stream_id,
-                                        frame_id: last_frame_id,
-                                    }
+                                    AckFrame::new(
+                                        cmd.stream_id(),
+                                        last_frame_id,
+                                    )
                                     .into(),
                                 )
                                 .await
@@ -407,12 +365,12 @@ where
 
                             //write data from frame to file
                             writer
-                                .write_all(f.payload)
+                                .write_all(f.payload())
                                 .expect("Could not write to BufWriter");
 
                             //update last received frame id and offset
-                            last_frame_id = f.header.frame_id;
-                            last_offset += f.header.length();
+                            last_frame_id = f.frame_id();
+                            last_offset += f.length();
 
                             //send ACK
                             cum_ack_ctr += 1;
@@ -424,11 +382,10 @@ where
                                  */
 
                                 sink.send(
-                                    AckFrame {
-                                        typ: 0,
-                                        stream_id: cmd.header.stream_id,
-                                        frame_id: f.header.frame_id,
-                                    }
+                                    AckFrame::new(
+                                        cmd.stream_id(),
+                                        f.frame_id(),
+                                    )
                                     .into(),
                                 )
                                 .await
@@ -439,12 +396,12 @@ where
                         } else {
                             //illegal frame or channel closed: abort transmission and leave file so client can continue later
                             frame_number += 1;
-                            sink.send(make_error(
-                                cmd.header.stream_id,
-                                cmd.header.frame_id,
+                            sink.send(ErrorFrame::new(
+                                cmd.stream_id(),
+                                cmd.frame_id(),
                                 frame_number,
                                 "Illegal Frame Received".into(),
-                            ))
+                            ).into())
                             .await
                             .expect("stream_handler: could not send response");
                             return Ok(());
@@ -453,46 +410,43 @@ where
                     Ok(())
                 }
 
-                Frames::Checksum(cmd) => {
-                    match str::from_utf8(cmd.payload) {
-                        Ok(p) => match File::open(p) {
+                Frame::Checksum(cmd) => {
+                    match cmd.path().to_str() {
+                        Some(p) => match File::open(p) {
                             Ok(f) => {
                                 let reader = BufReader::new(f);
                                 let digest = sha256_digest(reader)?;
                                 sink.send(
-                                    AnswerFrame {
-                                        header: &AnswerHeader {
-                                            typ: 4,
-                                            stream_id: cmd.header.stream_id,
-                                            frame_id: cmd.header.frame_id + 1,
-                                            command_frame_id: cmd.header.frame_id,
-                                        },
-                                        payload: &Bytes::copy_from_slice(digest.as_ref()),
-                                    }
+                                    AnswerFrame::new(
+                                            cmd.stream_id(),
+                                            cmd.frame_id() + 1,
+                                            cmd.frame_id(),
+                                            Bytes::copy_from_slice(digest.as_ref()),
+                                    )
                                     .into(),
                                 )
                                 .await
                                 .expect("stream_handler: could not send response");
                             }
                             Err(e) => {
-                                sink.send(make_error(
-                                    cmd.header.stream_id,
-                                    cmd.header.frame_id,
+                                sink.send(ErrorFrame::new(
+                                    cmd.stream_id(),
+                                    cmd.frame_id(),
                                     1,
-                                    e.to_string(),
-                                ))
+                                    e.to_string().as_str(),
+                                ).into())
                                 .await
                                 .expect("stream_handler: could not send response");
                                 return Ok(());
                             }
                         },
-                        Err(_) => {
-                            sink.send(make_error(
-                                cmd.header.stream_id,
-                                cmd.header.frame_id,
+                        None => {
+                            sink.send(ErrorFrame::new(
+                                cmd.stream_id(),
+                                cmd.frame_id(),
                                 1,
                                 "Invalid Payload".into(),
-                            ))
+                            ).into())
                             .await
                             .expect("stream_handler: could not send response");
                             return Ok(());
@@ -502,25 +456,25 @@ where
                     Ok(())
                 }
 
-                Frames::Stat(cmd) => {
-                    sink.send(make_error(
-                        cmd.header.stream_id,
-                        cmd.header.frame_id,
+                Frame::Stat(cmd) => {
+                    sink.send(ErrorFrame::new(
+                        cmd.stream_id(),
+                        cmd.frame_id(),
                         1,
                         "Not implemented".into(),
-                    ))
+                    ).into())
                     .await
                     .expect("stream_handler: could not send response");
                     Ok(())
                 }
 
-                Frames::List(cmd) => {
-                    sink.send(make_error(
-                        cmd.header.stream_id,
-                        cmd.header.frame_id,
+                Frame::List(cmd) => {
+                    sink.send(ErrorFrame::new(
+                        cmd.stream_id(),
+                        cmd.frame_id(),
                         1,
                         "Not implemented".into(),
-                    ))
+                    ).into())
                     .await
                     .expect("stream_handler: could not send response");
                     Ok(())
