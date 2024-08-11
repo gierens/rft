@@ -24,10 +24,53 @@ impl PacketHeader {
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
-pub struct AckFrame {
-    pub typ: u8,
+pub struct AckHeader {
+    pub type_id: u8,
     pub stream_id: u16,
     pub frame_id: u32,
+}
+
+pub struct AckFrame {
+    bytes: Bytes,
+}
+
+impl AckFrame {
+    const TYPE_ID: u8 = 0;
+
+    pub fn new(stream_id: u16, frame_id: u32) -> Self {
+        let header = AckHeader {
+            type_id: Self::TYPE_ID,
+            stream_id,
+            frame_id,
+        };
+        let bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
+        AckFrame { bytes }
+    }
+
+    pub fn header(&self) -> &AckHeader {
+        AckHeader::ref_from(self.bytes.as_ref()).expect("Failed to reference AckHeader")
+    }
+
+    pub fn type_id(&self) -> u8 {
+        self.header().type_id
+    }
+
+    pub fn stream_id(&self) -> u16 {
+        self.header().stream_id
+    }
+
+    pub fn frame_id(&self) -> u32 {
+        self.header().frame_id
+    }
+}
+
+impl Debug for AckFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Ack")
+            .field("stream_id", &self.stream_id())
+            .field("frame_id", &self.frame_id())
+            .finish()
+    }
 }
 
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
