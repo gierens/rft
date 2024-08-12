@@ -155,6 +155,9 @@ where
                     let mut timeout_retry_count = 0;
                     let max_timeout_retry = 3;
 
+                    let mut eof_frame_id = u64::MAX;
+                    let mut fin = false;
+
                     //TODO: which buf size to use? 128 for tests.
                     let mut read_buf = [0u8; 128];
                     loop {
@@ -177,6 +180,11 @@ where
                                                     as usize];
                                             last_ackd_frame = af.frame_id();
                                             timeout_retry_count = 0;
+
+                                            //check if EOF was ACK'd
+                                            if last_ackd_frame >= eof_frame_id as u32 {
+                                                fin = true;
+                                            }
                                         }
                                         Ordering::Equal => {
                                             //double ACK: rewind reader to last ACK'd offset
@@ -251,8 +259,7 @@ where
                         }
 
                         //check if we are finished
-                        //TODO: is this actually guaranteed to work??
-                        if last_ackd_offset >= read_target {
+                        if last_ackd_offset >= read_target && fin {
                             break;
                         };
 
@@ -295,6 +302,11 @@ where
                         //advance ring buffer
                         ringbuf_head = (ringbuf_head + 1) % cum_ack_interval;
                         cum_ack_offset_ringbuf[ringbuf_head as usize] = last_offset;
+
+                        //check if this packet was EOF
+                        if data_size == 0 {
+                            eof_frame_id = frame_number as u64;
+                        }
                     }
 
                     Ok(())
