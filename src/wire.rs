@@ -676,6 +676,7 @@ impl Debug for ReadFrame {
             .field("offset", &self.offset())
             .field("length", &self.length())
             .field("checksum", &self.checksum())
+            .field("path", &self.path())
             .finish()
     }
 }
