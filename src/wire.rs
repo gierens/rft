@@ -1184,6 +1184,25 @@ pub enum Frame {
     List(ListFrame),
 }
 
+impl Frame {
+    pub fn stream_id(&self) -> u16 {
+        match self {
+            Frame::Ack(frame) => frame.stream_id(),
+            Frame::Exit(_) => 0,
+            Frame::ConnIdChange(_) => 0,
+            Frame::FlowControl(_) => 0,
+            Frame::Answer(frame) => frame.stream_id(),
+            Frame::Error(frame) => frame.stream_id(),
+            Frame::Data(frame) => frame.stream_id(),
+            Frame::Read(frame) => frame.stream_id(),
+            Frame::Write(frame) => frame.stream_id(),
+            Frame::Checksum(frame) => frame.stream_id(),
+            Frame::Stat(frame) => frame.stream_id(),
+            Frame::List(frame) => frame.stream_id(),
+        }
+    }
+}
+
 impl Debug for Frame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
