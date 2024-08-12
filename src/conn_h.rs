@@ -2,7 +2,7 @@ use crate::wire::{AckFrame, AnswerFrame, DataFrame, ErrorFrame, Frame};
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
 use futures::{Sink, SinkExt, Stream, StreamExt};
-use std::cmp::Ordering;
+use std::cmp::{min, Ordering};
 use std::fmt::Debug;
 use std::fs;
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
@@ -93,7 +93,27 @@ where
                     let metadata = fs::metadata(path.clone()).expect("Could not get file metadata");
                     let file_size = metadata.len();
 
-                    //TODO: actually stop reading at cmd.header.length()
+                    //check if trying to read past EOF
+                    if cmd.offset() + cmd.length() > file_size {
+                        frame_number += 1;
+                        sink.send(
+                            ErrorFrame::new(
+                                cmd.stream_id(),
+                                cmd.frame_id(),
+                                frame_number,
+                                "You're trying to read past EOF",
+                            )
+                            .into(),
+                        )
+                        .await
+                        .expect("stream_handler: could not send response");
+                        return Ok(());
+                    }
+
+                    let read_target = match cmd.length() {
+                        0 => file_size,
+                        _ => min(cmd.offset() + cmd.length(), file_size),
+                    };
 
                     //move cursor to offset
                     //TODO: may have to check manually if offset is past file size ??
@@ -232,12 +252,25 @@ where
 
                         //check if we are finished
                         //TODO: is this actually guaranteed to work??
-                        if last_ackd_offset >= file_size {
+                        if last_ackd_offset >= read_target {
                             break;
                         };
 
                         //read bytes from file into buf
-                        let data_size = reader.read(&mut read_buf).expect("file read error");
+                        let mut data_size = reader.read(&mut read_buf).expect("file read error");
+
+                        //check if we reached read_target
+                        if last_offset >= read_target {
+                            data_size = 0;
+                        }
+
+                        //check if we read past read_target in this iteration
+                        if last_offset + (data_size as u64) >= read_target {
+                            //adjust data_size to only send data up to read_target
+                            data_size -=
+                                ((last_offset + (data_size as u64)) - read_target) as usize;
+                        }
+
                         let data_bytes = Bytes::copy_from_slice(&read_buf[..data_size]);
 
                         //assemble and dispatch data frame
