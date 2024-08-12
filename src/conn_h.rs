@@ -132,6 +132,9 @@ where
                     let mut cum_ack_offset_ringbuf = vec![0u64; cum_ack_interval as usize];
                     let mut ringbuf_head: u32 = 0; //head: last written element (increment before use)
 
+                    let mut timeout_retry_count = 0;
+                    let max_timeout_retry = 3;
+
                     //TODO: which buf size to use? 128 for tests.
                     let mut read_buf = [0u8; 128];
                     loop {
@@ -153,6 +156,7 @@ where
                                                     % cum_ack_interval)
                                                     as usize];
                                             last_ackd_frame = af.frame_id();
+                                            timeout_retry_count = 0;
                                         }
                                         Ordering::Equal => {
                                             //double ACK: rewind reader to last ACK'd offset
@@ -161,6 +165,7 @@ where
                                                 .expect("file read error");
                                             //rewind frame number
                                             frame_number = last_ackd_frame;
+                                            timeout_retry_count = 0;
                                         }
                                         Ordering::Less => {
                                             //"rewind ACK" ???????
@@ -181,21 +186,30 @@ where
                                     }
                                 }
                                 Err(_) => {
-                                    //timeout: send error frame, exit
-                                    //TODO: retry x times
-                                    frame_number += 1;
-                                    sink.send(
-                                        ErrorFrame::new(
-                                            cmd.stream_id(),
-                                            cmd.frame_id(),
-                                            frame_number,
-                                            "Timeout",
+                                    //timeout: retry max_timeout_retry times, then send error frame and exit
+                                    if timeout_retry_count < max_timeout_retry {
+                                        //rewind reader to last ACK'd offset
+                                        reader
+                                            .seek(SeekFrom::Start(last_ackd_offset))
+                                            .expect("file read error");
+                                        //rewind frame number
+                                        frame_number = last_ackd_frame;
+                                        timeout_retry_count += 1;
+                                    } else {
+                                        frame_number += 1;
+                                        sink.send(
+                                            ErrorFrame::new(
+                                                cmd.stream_id(),
+                                                cmd.frame_id(),
+                                                frame_number,
+                                                "Timeout",
+                                            )
+                                            .into(),
                                         )
-                                        .into(),
-                                    )
-                                    .await
-                                    .expect("stream_handler: could not send response");
-                                    return Ok(());
+                                        .await
+                                        .expect("stream_handler: could not send response");
+                                        return Ok(());
+                                    }
                                 }
                                 _ => {
                                     //other frame received: send error frame, exit
