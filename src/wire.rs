@@ -1077,6 +1077,7 @@ impl Debug for Packet {
 }
 
 impl Packet {
+    // TODO add convenience getters
     pub fn new(connection_id: u32) -> Self {
         let header = PacketHeader {
             version: VERSION,
