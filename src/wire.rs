@@ -1427,7 +1427,9 @@ mod tests {
             1,
             2,
             3,
-            "Did you ever hear the Tragedy of Darth Plagueis the Wise?".as_bytes().into(),
+            "Did you ever hear the Tragedy of Darth Plagueis the Wise?"
+                .as_bytes()
+                .into(),
         )));
         let bytes = packet.assemble();
         std::fs::write("./tests/data/ack_data_packet.bin", bytes).expect("Failed to write file");
