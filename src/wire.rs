@@ -1408,4 +1408,28 @@ mod tests {
         let bytes2 = packet2.assemble();
         assert_eq!(bytes1, bytes2);
     }
+
+    //#[test] // generates test data
+    #[allow(dead_code)]
+    fn write_ack_packet_to_file() {
+        let mut packet = Packet::new(69);
+        packet.add_frame(Frame::Ack(AckFrame::new(1, 12)));
+        let bytes = packet.assemble();
+        std::fs::write("./tests/data/ack_packet.bin", bytes).expect("Failed to write file");
+    }
+
+    //#[test] // generated the test data
+    #[allow(dead_code)]
+    fn write_ack_data_packet_to_file() {
+        let mut packet = Packet::new(69);
+        packet.add_frame(Frame::Ack(AckFrame::new(42, 3)));
+        packet.add_frame(Frame::Data(DataFrame::new(
+            1,
+            2,
+            3,
+            "Did you ever hear the Tragedy of Darth Plagueis the Wise?".as_bytes().into(),
+        )));
+        let bytes = packet.assemble();
+        std::fs::write("./tests/data/ack_data_packet.bin", bytes).expect("Failed to write file");
+    }
 }
