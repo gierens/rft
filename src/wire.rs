@@ -116,6 +116,12 @@ impl ExitFrame {
     }
 }
 
+impl Default for ExitFrame {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Parse for ExitFrame {
     fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error> {
         // TODO bounds check
