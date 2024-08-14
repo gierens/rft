@@ -1,5 +1,8 @@
+use std::future::Future;
 use std::net::Ipv4Addr;
 use std::path::PathBuf;
+use std::process::exit;
+use tokio::runtime;
 
 use clap::Parser;
 
@@ -66,10 +69,35 @@ struct Cli {
 fn main() {
     let args = Cli::parse();
 
+    //build async runtime
+    let mut runtime = runtime::Builder::new_multi_thread();
+    runtime.enable_all();
+
+    //set num_threads //TODO: take as cli arg?
+    runtime.worker_threads(8);
+
+    let runtime = match runtime.build() {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("Failed to build async runtime: {}", e);
+            exit(1)
+        }
+    };
+
     let loss_sim = LossSimulation::from_options(args.p, args.q);
-    if args.server {
-        Server::new(args.port, loss_sim).run();
-    } else {
-        Client::new(loss_sim).run(args.host.unwrap(), args.port, args.files.unwrap());
+
+    let result: anyhow::Result<()> = runtime.block_on(async move {
+        if args.server {
+            Server::new(args.port, loss_sim).run().await?;
+            Ok(())
+        } else {
+            Client::new(loss_sim).run(args.host.unwrap(), args.port, args.files.unwrap());
+            Ok(())
+        }
+    });
+
+    if let Err(e) = result {
+        eprintln!("Error!: {}", e);
+        exit(1);
     }
 }

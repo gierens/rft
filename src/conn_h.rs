@@ -476,6 +476,8 @@ where
                 }
 
                 Frame::Checksum(cmd) => {
+                    //TODO: await ACK and retry
+
                     match cmd.path().to_str() {
                         Some(p) => match File::open(p) {
                             Ok(f) => {
