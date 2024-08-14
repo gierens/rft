@@ -26,7 +26,7 @@ impl Server {
 
         //start frame switch task
         tokio::spawn(async move {
-            //hash map for channels to (and from?) handlers
+            //hash map for handler input channels
             let mut handler_map: HashMap<u16, futures::channel::mpsc::Sender<Frame>> =
                 HashMap::new();
 
