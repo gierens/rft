@@ -109,11 +109,13 @@ impl Server {
             }
         });
 
+        Ok(())
+
         //do frame muxing
+        /*
         loop {
             //take frames from mpsc stream and assemble+send packets
-            //TODO
-            panic!();
         }
+         */
     }
 }
