@@ -29,7 +29,7 @@ impl LossSimulation {
         }
     }
 
-    pub fn next(&mut self) -> bool {
+    pub fn is_next(&mut self) -> bool {
         let prob = if self.state { self.q } else { self.p };
         self.state = self.rng.gen_bool(prob);
         self.state
