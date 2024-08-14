@@ -22,7 +22,7 @@ impl Server {
         let mut buf = [0; 1024];
 
         //create mpsc channel for multiplexing  TODO: what is a good buffer size here?
-        let (mux_tx, mux_rx) = futures::channel::mpsc::channel(32);
+        let (mux_tx, _mux_rx) = futures::channel::mpsc::channel(32);
 
         //start frame switch task
         tokio::spawn(async move {
@@ -112,6 +112,8 @@ impl Server {
         //do frame muxing
         loop {
             //take frames from mpsc stream and assemble+send packets
+            //TODO
+            panic!();
         }
     }
 }
