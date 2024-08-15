@@ -1,6 +1,7 @@
 use rand::{rngs::ThreadRng, Rng};
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct LossSimulation {
     rng: ThreadRng,
     p: f64,

@@ -12,11 +12,10 @@ mod server;
 #[allow(dead_code)]
 mod wire;
 
-use client::Client;
 use loss_simulation::LossSimulation;
 use server::Server;
 
-#[derive(Parser)]
+#[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
     #[arg(
@@ -90,8 +89,20 @@ fn main() {
             Server::new(args.port, loss_sim).run().await?;
             Ok(())
         } else {
-            Client::new(loss_sim).run(args.host.unwrap(), args.port, args.files.unwrap());
-            Ok(())
+            let config = client::ClientConfig::new(
+                args.host.unwrap(),
+                args.port,
+                args.files.unwrap(),
+                loss_sim,
+            );
+            let mut client = client::Client::new(config);
+            match client.start() {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    eprintln!("Failed to start client: {}", e);
+                    exit(1);
+                }
+            }
         }
     });
 
