@@ -30,7 +30,6 @@ impl ClientConfig {
 }
 
 #[derive(Debug)]
-
 pub struct Client {
     config: ClientConfig,
     conn: Option<UdpSocket>,

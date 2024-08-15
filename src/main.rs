@@ -12,9 +12,9 @@ mod server;
 #[allow(dead_code)]
 mod wire;
 
+use client::Client;
 use loss_simulation::LossSimulation;
 use server::Server;
-use client::Client;
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -85,24 +85,24 @@ fn main() {
         }
     };
 
-
     let result = runtime.block_on(async move {
         if args.server {
             Server::new(args.port, loss_sim).run().await
         } else {
             let config = client::ClientConfig::new(
-                args.host.ok_or_else(|| anyhow::anyhow!("Host is required for client mode"))?,
+                args.host
+                    .ok_or_else(|| anyhow::anyhow!("Host is required for client mode"))?,
                 args.port,
-                args.files.ok_or_else(|| anyhow::anyhow!("Files are required for client mode"))?,
+                args.files
+                    .ok_or_else(|| anyhow::anyhow!("Files are required for client mode"))?,
                 loss_sim,
             );
             Client::new(config).start()
         }
     });
-    
+
     if let Err(e) = result {
         eprintln!("Error: {}", e);
         std::process::exit(1);
     }
-    
 }
