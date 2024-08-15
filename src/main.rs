@@ -14,6 +14,7 @@ mod wire;
 
 use loss_simulation::LossSimulation;
 use server::Server;
+use client::Client;
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -67,6 +68,8 @@ struct Cli {
 fn main() {
     let args = Cli::parse();
 
+    let loss_sim = LossSimulation::from_options(args.p, args.q);
+
     //build async runtime
     let mut runtime = runtime::Builder::new_multi_thread();
     runtime.enable_all();
@@ -82,32 +85,24 @@ fn main() {
         }
     };
 
-    let loss_sim = LossSimulation::from_options(args.p, args.q);
 
-    let result: anyhow::Result<()> = runtime.block_on(async move {
+    let result = runtime.block_on(async move {
         if args.server {
-            Server::new(args.port, loss_sim).run().await?;
-            Ok(())
+            Server::new(args.port, loss_sim).run().await
         } else {
             let config = client::ClientConfig::new(
-                args.host.unwrap(),
+                args.host.ok_or_else(|| anyhow::anyhow!("Host is required for client mode"))?,
                 args.port,
-                args.files.unwrap(),
+                args.files.ok_or_else(|| anyhow::anyhow!("Files are required for client mode"))?,
                 loss_sim,
             );
-            let mut client = client::Client::new(config);
-            match client.start() {
-                Ok(_) => Ok(()),
-                Err(e) => {
-                    eprintln!("Failed to start client: {}", e);
-                    exit(1);
-                }
-            }
+            Client::new(config).start()
         }
     });
-
+    
     if let Err(e) = result {
-        eprintln!("Error!: {}", e);
-        exit(1);
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
     }
+    
 }
