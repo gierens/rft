@@ -1,6 +1,5 @@
 use crate::stream_handler::stream_handler;
 use crate::wire::{Frame, Packet};
-use anyhow::anyhow;
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -15,8 +14,11 @@ pub async fn connection_handler<S: Sink<Packet> + Unpin>(
 where
     <S as futures::Sink<Packet>>::Error: Debug,
 {
+    //for now, assume established connection
+    let connection_id = 42069;
+
     //create mpsc channel for multiplexing  TODO: what is a good buffer size here?
-    let (mux_tx, _mux_rx) = futures::channel::mpsc::channel(32);
+    let (mux_tx, mut mux_rx) = futures::channel::mpsc::channel(32);
 
     //TODO: maybe avoid 'static somehow?
 
@@ -28,7 +30,7 @@ where
         loop {
             let packet = match stream.next().await {
                 None => {
-                    return anyhow!("packet stream closed!");
+                    return;
                 }
                 Some(p) => p,
             };
@@ -37,6 +39,20 @@ where
                 match frame.stream_id() {
                     0 => {
                         //TODO: handle connection control frames
+                        match frame {
+                            Frame::Exit(_) => {
+                                //TODO: how to kill all the handler processes? -> likely best solution: just let them time out
+                                //parent process will return if mpsc channel has no more senders
+                                return;
+                            }
+                            Frame::ConnIdChange(_) => {
+                                //TODO: have mutex'd connId variable and change it here
+                            }
+                            Frame::FlowControl(_) => {
+                                //TODO
+                            }
+                            _ => {}
+                        }
                     }
                     _ => {
                         match handler_map.get_mut(&frame.stream_id()) {
@@ -100,12 +116,27 @@ where
         }
     });
 
-    //do frame muxing
-    /*
+    //start frame muxing and packet assembly
     loop {
-        //take frames from mpsc stream and assemble+send packets
-    }
-     */
+        let mut packet = Packet::new(connection_id);
 
-    Ok(())
+        //get some frames and add them to packet
+        let mut size = 0;
+        loop {
+            if size > 5 {
+                break;
+            }
+            //TODO: how long to wait for more frames?
+            let frame = match mux_rx.next().await {
+                None => return Ok(()),
+                Some(f) => f,
+            };
+
+            size += 1; //TODO how to measure actual size?
+            packet.add_frame(frame);
+        }
+
+        //send packet trough sink
+        sink.send(packet).await.expect("could not send packet");
+    }
 }
