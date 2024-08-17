@@ -5,6 +5,9 @@ use futures::{Sink, SinkExt, Stream, StreamExt};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
+#[allow(dead_code)]
+#[allow(unused_mut)]
+#[allow(unused_variables)]
 pub async fn connection_handler<S: Sink<Packet> + Unpin>(
     mut stream: impl Stream<Item = Packet> + Unpin + Send + 'static,
     mut sink: S,
