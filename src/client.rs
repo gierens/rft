@@ -40,8 +40,8 @@ impl Client {
         Client { config, conn: None }
     }
 
-    pub fn start(&mut self) -> Result<(), anyhow::Error> {
-        let socket = match UdpSocket::bind("0.0.0.0.0") {
+    pub fn connect(&mut self) -> Result<&Client, anyhow::Error> {
+        let socket = match UdpSocket::bind("0.0.0.0") {
             Ok(socket) => {
                 match socket.connect(SocketAddrV4::new(self.config.host, self.config.port)) {
                     Ok(_) => socket,
@@ -51,6 +51,12 @@ impl Client {
             Err(e) => return Err(anyhow!("Failed to bind socket: {}", e)),
         };
         self.conn = Some(socket);
+        Ok(self)
+    }
+
+    pub fn start(&mut self) -> Result<(), anyhow::Error> {
+        // TODO Start connection establishment
+        // TODO Start file transfer
         Ok(())
     }
 }

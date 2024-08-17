@@ -97,7 +97,11 @@ fn main() {
                     .ok_or_else(|| anyhow::anyhow!("Files are required for client mode"))?,
                 loss_sim,
             );
-            Client::new(config).start()
+            let mut client = Client::new(config);
+            match client.connect() {
+                Ok(_) => client.start(),
+                Err(e) => Err(e),
+            }
         }
     });
 
