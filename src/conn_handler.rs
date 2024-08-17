@@ -1,16 +1,16 @@
 use crate::stream_handler::stream_handler;
 use crate::wire::{Frame, Packet};
+use anyhow::anyhow;
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use std::collections::HashMap;
 use std::fmt::Debug;
-use anyhow::anyhow;
 
 pub async fn connection_handler<S: Sink<Packet> + Unpin>(
     mut stream: impl Stream<Item = Packet> + Unpin + Send + 'static,
     mut sink: S,
 ) -> anyhow::Result<()>
 where
-<S as futures::Sink<Packet>>::Error: Debug,
+    <S as futures::Sink<Packet>>::Error: Debug,
 {
     //create mpsc channel for multiplexing  TODO: what is a good buffer size here?
     let (mux_tx, _mux_rx) = futures::channel::mpsc::channel(32);
@@ -20,16 +20,15 @@ where
     //start frame switch task
     tokio::spawn(async move {
         //hash map for handler input channels
-        let mut handler_map: HashMap<u16, futures::channel::mpsc::Sender<Frame>> =
-            HashMap::new();
+        let mut handler_map: HashMap<u16, futures::channel::mpsc::Sender<Frame>> = HashMap::new();
 
         loop {
-
             let packet = match stream.next().await {
-                None => {return anyhow!("packet stream closed!");}
-                Some(p) => {p}
+                None => {
+                    return anyhow!("packet stream closed!");
+                }
+                Some(p) => p,
             };
-
 
             for frame in packet.frames {
                 match frame.stream_id() {
@@ -69,8 +68,7 @@ where
 
                                         //handler dead, start new one
                                         //create new channel
-                                        let (mut ctx, crx) =
-                                            futures::channel::mpsc::channel(16); //TODO: good buffer size?
+                                        let (mut ctx, crx) = futures::channel::mpsc::channel(16); //TODO: good buffer size?
 
                                         //send frame
                                         let f = e.into_inner();
