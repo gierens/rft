@@ -1,5 +1,5 @@
-use crate::stream_handler::stream_handler;
 use crate::loss_simulation::LossSimulation;
+use crate::stream_handler::stream_handler;
 use crate::wire::{Frame, Packet};
 use futures::SinkExt;
 use std::collections::HashMap;
