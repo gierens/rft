@@ -1,4 +1,4 @@
-use crate::conn_h::stream_handler;
+use crate::stream_handler::stream_handler;
 use crate::loss_simulation::LossSimulation;
 use crate::wire::{Frame, Packet};
 use futures::SinkExt;
