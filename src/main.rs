@@ -6,9 +6,9 @@ use tokio::runtime;
 use clap::Parser;
 
 mod client;
-mod stream_handler;
 mod loss_simulation;
 mod server;
+mod stream_handler;
 #[allow(dead_code)]
 mod wire;
 
