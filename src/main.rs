@@ -11,6 +11,7 @@ mod server;
 mod stream_handler;
 #[allow(dead_code)]
 mod wire;
+mod conn_handler;
 
 use client::Client;
 use loss_simulation::LossSimulation;
