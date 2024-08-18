@@ -3,6 +3,7 @@ use crate::wire::{Frame, Packet};
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::sync::{Arc, Mutex};
 
 #[allow(dead_code)]
 #[allow(unused_mut)]
@@ -15,7 +16,7 @@ where
     <S as futures::Sink<Packet>>::Error: Debug,
 {
     //for now, assume established connection
-    let connection_id = 42069;
+    let connection_id = Arc::new(Mutex::new(42069u32));
 
     //create mpsc channel for multiplexing  TODO: what is a good buffer size here?
     let (mux_tx, mut mux_rx) = futures::channel::mpsc::channel(32);
@@ -23,6 +24,7 @@ where
     //TODO: maybe avoid 'static somehow?
 
     //start frame switch task
+    let connid_switch = connection_id.clone();
     tokio::spawn(async move {
         //hash map for handler input channels
         let mut handler_map: HashMap<u16, futures::channel::mpsc::Sender<Frame>> = HashMap::new();
@@ -45,8 +47,20 @@ where
                                 //parent process will return if mpsc channel has no more senders
                                 return;
                             }
-                            Frame::ConnIdChange(_) => {
+                            Frame::ConnIdChange(f) => {
                                 //TODO: have mutex'd connId variable and change it here
+                                //check old stream ID
+                                {
+                                    if *connid_switch.lock().unwrap() != f.old_cid() {
+                                        //for now: ignore
+                                        //TODO: ???
+                                        eprintln!("Wrong old CID in connection handler change_CID");
+                                    }
+                                }
+
+                                //update CID
+                                let mut cid_mtx = connid_switch.lock().unwrap();
+                                *cid_mtx = f.new_cid();
                             }
                             Frame::FlowControl(_) => {
                                 //TODO
@@ -118,7 +132,12 @@ where
 
     //start frame muxing and packet assembly
     loop {
-        let mut packet = Packet::new(connection_id);
+        //get connection id
+        let connid;
+        {
+            connid = *connection_id.lock().unwrap();
+        }
+        let mut packet = Packet::new(connid);
 
         //get some frames and add them to packet
         let mut size = 0;
