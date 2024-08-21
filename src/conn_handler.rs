@@ -179,25 +179,34 @@ where
             flowwnd_sample = *flowwnd.lock().unwrap();
         }
         if packet_id - last_ackd_pckt_id >= min(flowwnd_sample, cwnd) {
-            let (lock, cvar) = &*last_ackd_ids;
-            let mut ids = lock.lock().unwrap();
-            loop {
-                if ids[0] > last_ackd_pckt_id {
-                    //new ACK received
-                    last_ackd_pckt_id = ids[0];
+            let mut illegal_ack = false;
+
+            {
+                let (lock, cvar) = &*last_ackd_ids;
+                let mut ids = lock.lock().unwrap();
+                loop {
+                    if ids[0] > last_ackd_pckt_id {
+                        //new ACK received
+                        last_ackd_pckt_id = ids[0];
+                        break;
+                    }
+                    if ids[0] == last_ackd_pckt_id && ids[0] > ids[1] {
+                        //no new ACK received, wait and continue
+                        ids = cvar.wait(ids).unwrap();
+                        continue;
+                    }
+                    if ids[0] == ids[1] {
+                        //double ACK received, rewind
+                        //TODO
+                    }
+
+                    //else: should never get here
+                    illegal_ack = true;
                     break;
                 }
-                if ids[0] == last_ackd_pckt_id && ids[0] > ids[1] {
-                    //no new ACK received, wait and continue
-                    ids = cvar.wait(ids).unwrap();
-                    continue;
-                }
-                if ids[0] == ids[1] {
-                    //double ACK received, rewind
-                    //TODO
-                }
+            }
 
-                //else: should never get here
+            if illegal_ack {
                 packet.add_frame(
                     ErrorFrame::new(0, "ACK irregularities observed, terminating connection")
                         .into(),
