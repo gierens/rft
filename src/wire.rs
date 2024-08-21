@@ -7,6 +7,20 @@ use zerocopy::{AsBytes, FromBytes, FromZeroes};
 
 const VERSION: u8 = 1;
 
+pub trait Parse {
+    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error>
+    where
+        Self: Sized;
+}
+
+pub trait Assemble {
+    fn assemble(&self) -> BytesMut;
+}
+
+pub trait Size {
+    fn size(&self) -> usize;
+}
+
 #[derive(Debug, AsBytes, FromZeroes, FromBytes)]
 #[repr(C, packed)]
 pub struct PacketHeader {
@@ -32,6 +46,13 @@ pub struct AckHeader {
 #[derive(Clone)]
 pub struct AckFrame {
     bytes: Bytes,
+}
+
+impl Size for AckFrame {
+    #[inline(always)]
+    fn size(&self) -> usize {
+        size_of::<AckHeader>()
+    }
 }
 
 impl AckFrame {
@@ -92,6 +113,13 @@ pub struct ExitFrame {
     bytes: Bytes,
 }
 
+impl Size for ExitFrame {
+    #[inline(always)]
+    fn size(&self) -> usize {
+        size_of::<ExitHeader>()
+    }
+}
+
 impl ExitFrame {
     const TYPE_ID: u8 = 1;
 
@@ -149,6 +177,13 @@ pub struct ConnIdChangeHeader {
 #[derive(Clone)]
 pub struct ConnIdChangeFrame {
     bytes: Bytes,
+}
+
+impl Size for ConnIdChangeFrame {
+    #[inline(always)]
+    fn size(&self) -> usize {
+        size_of::<ConnIdChangeHeader>()
+    }
 }
 
 impl ConnIdChangeFrame {
@@ -219,6 +254,13 @@ pub struct FlowControlFrame {
     bytes: Bytes,
 }
 
+impl Size for FlowControlFrame {
+    #[inline(always)]
+    fn size(&self) -> usize {
+        size_of::<FlowControlHeader>()
+    }
+}
+
 impl FlowControlFrame {
     const TYPE_ID: u8 = 3;
 
@@ -278,6 +320,13 @@ pub struct AnswerHeader {
 pub struct AnswerFrame {
     pub header_bytes: Bytes,
     pub payload_bytes: Bytes,
+}
+
+impl Size for AnswerFrame {
+    #[inline(always)]
+    fn size(&self) -> usize {
+        size_of::<AnswerHeader>() + 2 + self.payload_bytes.len()
+    }
 }
 
 impl AnswerFrame {
@@ -357,6 +406,13 @@ pub struct ErrorHeader {
 pub struct ErrorFrame {
     pub header_bytes: Bytes,
     pub payload_bytes: Bytes,
+}
+
+impl Size for ErrorFrame {
+    #[inline(always)]
+    fn size(&self) -> usize {
+        size_of::<ErrorHeader>() + 2 + self.payload_bytes.len()
+    }
 }
 
 impl ErrorFrame {
@@ -451,6 +507,13 @@ pub struct DataFrame {
     pub payload_bytes: Bytes,
 }
 
+impl Size for DataFrame {
+    #[inline(always)]
+    fn size(&self) -> usize {
+        size_of::<DataHeader>() + 2 + self.payload_bytes.len()
+    }
+}
+
 impl DataFrame {
     const TYPE_ID: u8 = 6;
 
@@ -543,6 +606,13 @@ pub struct ReadHeader {
 pub struct ReadFrame {
     pub header_bytes: Bytes,
     pub payload_bytes: Bytes,
+}
+
+impl Size for ReadFrame {
+    #[inline(always)]
+    fn size(&self) -> usize {
+        size_of::<ReadHeader>() + 2 + self.payload_bytes.len()
+    }
 }
 
 impl ReadFrame {
@@ -661,6 +731,13 @@ pub struct WriteFrame {
     pub payload_bytes: Bytes,
 }
 
+impl Size for WriteFrame {
+    #[inline(always)]
+    fn size(&self) -> usize {
+        size_of::<WriteHeader>() + 2 + self.payload_bytes.len()
+    }
+}
+
 impl WriteFrame {
     const TYPE_ID: u8 = 8;
 
@@ -756,6 +833,13 @@ pub struct ChecksumFrame {
     pub payload_bytes: Bytes,
 }
 
+impl Size for ChecksumFrame {
+    #[inline(always)]
+    fn size(&self) -> usize {
+        size_of::<ChecksumHeader>() + 2 + self.payload_bytes.len()
+    }
+}
+
 impl ChecksumFrame {
     const TYPE_ID: u8 = 9;
 
@@ -838,6 +922,13 @@ pub struct StatHeader {
 pub struct StatFrame {
     pub header_bytes: Bytes,
     pub payload_bytes: Bytes,
+}
+
+impl Size for StatFrame {
+    #[inline(always)]
+    fn size(&self) -> usize {
+        size_of::<StatHeader>() + 2 + self.payload_bytes.len()
+    }
 }
 
 impl StatFrame {
@@ -923,6 +1014,13 @@ pub struct ListFrame {
     pub payload_bytes: Bytes,
 }
 
+impl Size for ListFrame {
+    #[inline(always)]
+    fn size(&self) -> usize {
+        size_of::<ListHeader>() + 2 + self.payload_bytes.len()
+    }
+}
+
 impl ListFrame {
     const TYPE_ID: u8 = 11;
 
@@ -993,20 +1091,17 @@ impl Debug for ListFrame {
     }
 }
 
-pub trait Parse {
-    fn parse(bytes: &mut Bytes) -> Result<Frame, anyhow::Error>
-    where
-        Self: Sized;
-}
-
-pub trait Assemble {
-    fn assemble(&self) -> BytesMut;
-}
-
 #[derive(Clone)]
 pub struct Packet {
     header_bytes: Bytes,
     pub frames: Vec<Frame>,
+}
+
+impl Size for Packet {
+    #[inline(always)]
+    fn size(&self) -> usize {
+        size_of::<PacketHeader>() + self.frames.iter().map(|frame| frame.size()).sum::<usize>()
+    }
 }
 
 impl Debug for Packet {
@@ -1197,6 +1292,25 @@ impl Assemble for Frame {
             Frame::Checksum(frame) => frame.assemble(),
             Frame::Stat(frame) => frame.assemble(),
             Frame::List(frame) => frame.assemble(),
+        }
+    }
+}
+
+impl Size for Frame {
+    fn size(&self) -> usize {
+        match self {
+            Frame::Ack(frame) => frame.size(),
+            Frame::Exit(frame) => frame.size(),
+            Frame::ConnIdChange(frame) => frame.size(),
+            Frame::FlowControl(frame) => frame.size(),
+            Frame::Answer(frame) => frame.size(),
+            Frame::Error(frame) => frame.size(),
+            Frame::Data(frame) => frame.size(),
+            Frame::Read(frame) => frame.size(),
+            Frame::Write(frame) => frame.size(),
+            Frame::Checksum(frame) => frame.size(),
+            Frame::Stat(frame) => frame.size(),
+            Frame::List(frame) => frame.size(),
         }
     }
 }
