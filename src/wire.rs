@@ -12,6 +12,7 @@ const VERSION: u8 = 1;
 pub struct PacketHeader {
     pub version: u8,
     pub connection_id: u32,
+    pub packet_id: u32,
     pub checksum: [u8; 3],
 }
 
@@ -25,8 +26,7 @@ impl PacketHeader {
 #[repr(C, packed)]
 pub struct AckHeader {
     pub type_id: u8,
-    pub stream_id: u16,
-    pub frame_id: u32,
+    pub packet_id: u32,
 }
 
 pub struct AckFrame {
@@ -36,11 +36,10 @@ pub struct AckFrame {
 impl AckFrame {
     const TYPE_ID: u8 = 0;
 
-    pub fn new(stream_id: u16, frame_id: u32) -> Self {
+    pub fn new(packet_id: u32) -> Self {
         let header = AckHeader {
             type_id: Self::TYPE_ID,
-            stream_id,
-            frame_id,
+            packet_id,
         };
         let bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
         AckFrame { bytes }
@@ -54,12 +53,8 @@ impl AckFrame {
         self.header().type_id
     }
 
-    pub fn stream_id(&self) -> u16 {
-        self.header().stream_id
-    }
-
-    pub fn frame_id(&self) -> u32 {
-        self.header().frame_id
+    pub fn packet_id(&self) -> u32 {
+        self.header().packet_id
     }
 }
 
@@ -80,8 +75,7 @@ impl Assemble for AckFrame {
 impl Debug for AckFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Ack")
-            .field("stream_id", &self.stream_id())
-            .field("frame_id", &self.frame_id())
+            .field("packet_id", &self.packet_id())
             .finish()
     }
 }
@@ -274,8 +268,6 @@ impl Debug for FlowControlFrame {
 pub struct AnswerHeader {
     pub type_id: u8,
     pub stream_id: u16,
-    pub frame_id: u32,
-    pub command_frame_id: u32,
 }
 
 pub struct AnswerFrame {
@@ -286,12 +278,10 @@ pub struct AnswerFrame {
 impl AnswerFrame {
     const TYPE_ID: u8 = 4;
 
-    pub fn new(stream_id: u16, frame_id: u32, command_frame_id: u32, payload: Bytes) -> Self {
+    pub fn new(stream_id: u16, payload: Bytes) -> Self {
         let header = AnswerHeader {
             type_id: Self::TYPE_ID,
             stream_id,
-            frame_id,
-            command_frame_id,
         };
         let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
         AnswerFrame {
@@ -311,14 +301,6 @@ impl AnswerFrame {
 
     pub fn stream_id(&self) -> u16 {
         self.header().stream_id
-    }
-
-    pub fn frame_id(&self) -> u32 {
-        self.header().frame_id
-    }
-
-    pub fn command_frame_id(&self) -> u32 {
-        self.header().command_frame_id
     }
 
     pub fn payload(&self) -> &Bytes {
@@ -354,8 +336,6 @@ impl Debug for AnswerFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Answer")
             .field("stream_id", &self.stream_id())
-            .field("frame_id", &self.frame_id())
-            .field("command_frame_id", &self.command_frame_id())
             .field("payload", &self.payload())
             .finish()
     }
@@ -366,8 +346,6 @@ impl Debug for AnswerFrame {
 pub struct ErrorHeader {
     pub type_id: u8,
     pub stream_id: u16,
-    pub frame_id: u32,
-    pub command_frame_id: u32,
 }
 
 pub struct ErrorFrame {
@@ -378,12 +356,10 @@ pub struct ErrorFrame {
 impl ErrorFrame {
     const TYPE_ID: u8 = 5;
 
-    pub fn new(stream_id: u16, frame_id: u32, command_frame_id: u32, message: &str) -> Self {
+    pub fn new(stream_id: u16, message: &str) -> Self {
         let header = ErrorHeader {
             type_id: Self::TYPE_ID,
             stream_id,
-            frame_id,
-            command_frame_id,
         };
         let header_bytes = BytesMut::from(header.as_bytes()).into();
         let payload_bytes = Bytes::copy_from_slice(message.as_bytes());
@@ -403,14 +379,6 @@ impl ErrorFrame {
 
     pub fn stream_id(&self) -> u16 {
         self.header().stream_id
-    }
-
-    pub fn frame_id(&self) -> u32 {
-        self.header().frame_id
-    }
-
-    pub fn command_frame_id(&self) -> u32 {
-        self.header().command_frame_id
     }
 
     pub fn message(&self) -> &str {
@@ -446,8 +414,6 @@ impl Debug for ErrorFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Error")
             .field("stream_id", &self.stream_id())
-            .field("frame_id", &self.frame_id())
-            .field("command_frame_id", &self.command_frame_id())
             .field("message", &self.message())
             .finish()
     }
@@ -470,7 +436,6 @@ fn u64_to_six_u8(value: u64) -> [u8; 6] {
 pub struct DataHeader {
     pub type_id: u8,
     pub stream_id: u16,
-    pub frame_id: u32,
     pub offset: [u8; 6],
 }
 
@@ -482,11 +447,10 @@ pub struct DataFrame {
 impl DataFrame {
     const TYPE_ID: u8 = 6;
 
-    pub fn new(stream_id: u16, frame_id: u32, offset: u64, payload: Bytes) -> Self {
+    pub fn new(stream_id: u16, offset: u64, payload: Bytes) -> Self {
         let header = DataHeader {
             type_id: Self::TYPE_ID,
             stream_id,
-            frame_id,
             offset: u64_to_six_u8(offset),
         };
         let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
@@ -506,10 +470,6 @@ impl DataFrame {
 
     pub fn stream_id(&self) -> u16 {
         self.header().stream_id
-    }
-
-    pub fn frame_id(&self) -> u32 {
-        self.header().frame_id
     }
 
     pub fn offset(&self) -> u64 {
@@ -555,7 +515,6 @@ impl Debug for DataFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Data")
             .field("stream_id", &self.stream_id())
-            .field("frame_id", &self.frame_id())
             .field("offset", &self.offset())
             .field("payload", &self.payload())
             .finish()
@@ -567,7 +526,6 @@ impl Debug for DataFrame {
 pub struct ReadHeader {
     pub type_id: u8,
     pub stream_id: u16,
-    pub frame_id: u32,
     pub flags: u8,
     pub offset: [u8; 6],
     pub length: [u8; 6],
@@ -584,7 +542,6 @@ impl ReadFrame {
 
     pub fn new(
         stream_id: u16,
-        frame_id: u32,
         flags: u8,
         offset: u64,
         length: u64,
@@ -594,7 +551,6 @@ impl ReadFrame {
         let header = ReadHeader {
             type_id: Self::TYPE_ID,
             stream_id,
-            frame_id,
             flags,
             offset: u64_to_six_u8(offset),
             length: u64_to_six_u8(length),
@@ -622,10 +578,6 @@ impl ReadFrame {
 
     pub fn stream_id(&self) -> u16 {
         self.header().stream_id
-    }
-
-    pub fn frame_id(&self) -> u32 {
-        self.header().frame_id
     }
 
     pub fn flags(&self) -> u8 {
@@ -677,7 +629,6 @@ impl Debug for ReadFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Read")
             .field("stream_id", &self.stream_id())
-            .field("frame_id", &self.frame_id())
             .field("flags", &self.flags())
             .field("offset", &self.offset())
             .field("length", &self.length())
@@ -692,7 +643,6 @@ impl Debug for ReadFrame {
 pub struct WriteHeader {
     pub type_id: u8,
     pub stream_id: u16,
-    pub frame_id: u32,
     pub offset: [u8; 6],
     pub length: [u8; 6],
 }
@@ -705,11 +655,10 @@ pub struct WriteFrame {
 impl WriteFrame {
     const TYPE_ID: u8 = 8;
 
-    pub fn new(stream_id: u16, frame_id: u32, offset: u64, length: u64, path: &Path) -> Self {
+    pub fn new(stream_id: u16, offset: u64, length: u64, path: &Path) -> Self {
         let header = WriteHeader {
             type_id: Self::TYPE_ID,
             stream_id,
-            frame_id,
             offset: u64_to_six_u8(offset),
             length: u64_to_six_u8(length),
         };
@@ -735,10 +684,6 @@ impl WriteFrame {
 
     pub fn stream_id(&self) -> u16 {
         self.header().stream_id
-    }
-
-    pub fn frame_id(&self) -> u32 {
-        self.header().frame_id
     }
 
     pub fn offset(&self) -> u64 {
@@ -782,7 +727,6 @@ impl Debug for WriteFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Write")
             .field("stream_id", &self.stream_id())
-            .field("frame_id", &self.frame_id())
             .field("offset", &self.offset())
             .field("length", &self.length())
             .field("path", &self.path())
@@ -795,7 +739,6 @@ impl Debug for WriteFrame {
 pub struct ChecksumHeader {
     pub type_id: u8,
     pub stream_id: u16,
-    pub frame_id: u32,
 }
 
 pub struct ChecksumFrame {
@@ -806,11 +749,10 @@ pub struct ChecksumFrame {
 impl ChecksumFrame {
     const TYPE_ID: u8 = 9;
 
-    pub fn new(stream_id: u16, frame_id: u32, path: &Path) -> Self {
+    pub fn new(stream_id: u16, path: &Path) -> Self {
         let header = ChecksumHeader {
             type_id: Self::TYPE_ID,
             stream_id,
-            frame_id,
         };
         let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
         let payload_bytes = Bytes::copy_from_slice(
@@ -835,10 +777,6 @@ impl ChecksumFrame {
 
     pub fn stream_id(&self) -> u16 {
         self.header().stream_id
-    }
-
-    pub fn frame_id(&self) -> u32 {
-        self.header().frame_id
     }
 
     pub fn path(&self) -> &Path {
@@ -874,7 +812,6 @@ impl Debug for ChecksumFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Checksum")
             .field("stream_id", &self.stream_id())
-            .field("frame_id", &self.frame_id())
             .field("path", &self.path())
             .finish()
     }
@@ -885,7 +822,6 @@ impl Debug for ChecksumFrame {
 pub struct StatHeader {
     pub type_id: u8,
     pub stream_id: u16,
-    pub frame_id: u32,
 }
 
 pub struct StatFrame {
@@ -896,11 +832,10 @@ pub struct StatFrame {
 impl StatFrame {
     const TYPE_ID: u8 = 10;
 
-    pub fn new(stream_id: u16, frame_id: u32, path: &Path) -> Self {
+    pub fn new(stream_id: u16, path: &Path) -> Self {
         let header = StatHeader {
             type_id: Self::TYPE_ID,
             stream_id,
-            frame_id,
         };
         let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
         let payload_bytes = Bytes::copy_from_slice(
@@ -924,10 +859,6 @@ impl StatFrame {
 
     pub fn stream_id(&self) -> u16 {
         self.header().stream_id
-    }
-
-    pub fn frame_id(&self) -> u32 {
-        self.header().frame_id
     }
 
     pub fn path(&self) -> &Path {
@@ -963,7 +894,6 @@ impl Debug for StatFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Stat")
             .field("stream_id", &self.stream_id())
-            .field("frame_id", &self.frame_id())
             .field("path", &self.path())
             .finish()
     }
@@ -974,7 +904,6 @@ impl Debug for StatFrame {
 pub struct ListHeader {
     pub type_id: u8,
     pub stream_id: u16,
-    pub frame_id: u32,
 }
 
 pub struct ListFrame {
@@ -985,11 +914,10 @@ pub struct ListFrame {
 impl ListFrame {
     const TYPE_ID: u8 = 11;
 
-    pub fn new(stream_id: u16, frame_id: u32, path: &Path) -> Self {
+    pub fn new(stream_id: u16, path: &Path) -> Self {
         let header = ListHeader {
             type_id: Self::TYPE_ID,
             stream_id,
-            frame_id,
         };
         let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
         let payload_bytes = Bytes::copy_from_slice(
@@ -1013,10 +941,6 @@ impl ListFrame {
 
     pub fn stream_id(&self) -> u16 {
         self.header().stream_id
-    }
-
-    pub fn frame_id(&self) -> u32 {
-        self.header().frame_id
     }
 
     pub fn path(&self) -> &Path {
@@ -1052,7 +976,6 @@ impl Debug for ListFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("List")
             .field("stream_id", &self.stream_id())
-            .field("frame_id", &self.frame_id())
             .field("path", &self.path())
             .finish()
     }
@@ -1084,10 +1007,11 @@ impl Debug for Packet {
 
 impl Packet {
     // TODO add convenience getters
-    pub fn new(connection_id: u32) -> Self {
+    pub fn new(connection_id: u32, packet_id: u32) -> Self {
         let header = PacketHeader {
             version: VERSION,
             connection_id,
+            packet_id,
             checksum: [0; 3],
         };
         let header_bytes = BytesMut::from(AsBytes::as_bytes(&header)).into();
@@ -1104,9 +1028,9 @@ impl Packet {
         // TODO the hasher should be cached somewhere outside of the Packet
         let mut hasher = crc32fast::Hasher::new();
         hasher.reset();
-        hasher.update(&bytes[0..=4]);
+        hasher.update(&bytes[0..=8]);
         hasher.update(&[0; 3]);
-        hasher.update(&bytes[8..]);
+        hasher.update(&bytes[12..]);
         let actual = hasher.finalize() & 0x00FFFFFF;
         expected == actual
     }
@@ -1164,13 +1088,13 @@ impl Assemble for Packet {
         for frame in &self.frames {
             bytes.extend_from_slice(&frame.assemble());
         }
-        bytes[5] = 0;
-        bytes[6] = 0;
-        bytes[7] = 0;
+        bytes[9] = 0;
+        bytes[10] = 0;
+        bytes[11] = 0;
         let checksum = crc32fast::hash(&bytes) & 0x00FFFFFF;
-        bytes[5] = checksum as u8;
-        bytes[6] = (checksum >> 8) as u8;
-        bytes[7] = (checksum >> 16) as u8;
+        bytes[9] = checksum as u8;
+        bytes[10] = (checksum >> 8) as u8;
+        bytes[11] = (checksum >> 16) as u8;
         bytes
     }
 }
@@ -1193,7 +1117,7 @@ pub enum Frame {
 impl Frame {
     pub fn stream_id(&self) -> u16 {
         match self {
-            Frame::Ack(frame) => frame.stream_id(),
+            Frame::Ack(_) => 0,
             Frame::Exit(_) => 0,
             Frame::ConnIdChange(_) => 0,
             Frame::FlowControl(_) => 0,
