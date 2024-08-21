@@ -1077,6 +1077,22 @@ impl Packet {
             .expect("Failed to reference PacketHeader")
     }
 
+    pub fn version(&self) -> u8 {
+        self.header().version
+    }
+
+    pub fn connection_id(&self) -> u32 {
+        self.header().connection_id
+    }
+
+    pub fn packet_id(&self) -> u32 {
+        self.header().packet_id
+    }
+
+    pub fn checksum(&self) -> u32 {
+        self.header().checksum()
+    }
+
     pub fn add_frame(&mut self, frame: Frame) {
         self.frames.push(frame);
     }
