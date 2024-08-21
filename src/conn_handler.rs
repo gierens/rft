@@ -148,6 +148,7 @@ where
 
     //start frame muxing and packet assembly
     let mut packet_id = 0; //last used packet ID, increment before use
+    let mut tx_packet_id = 0; // next packet id to be sent - 1 (for rewinding)
     let mut cwnd = 2048u32;
     let mut last_ackd_pckt_id = 0;
     let total_bytes = 0u64;
@@ -178,7 +179,7 @@ where
         {
             flowwnd_sample = *flowwnd.lock().unwrap();
         }
-        if packet_id - last_ackd_pckt_id >= min(flowwnd_sample, cwnd) {
+        if tx_packet_id - last_ackd_pckt_id >= min(flowwnd_sample, cwnd) {
             let mut illegal_ack = false;
 
             {
@@ -197,7 +198,8 @@ where
                     }
                     if ids[0] == ids[1] {
                         //double ACK received, rewind
-                        //TODO
+                        tx_packet_id = last_ackd_pckt_id;
+                        break;
                     }
 
                     //else: should never get here
@@ -216,31 +218,36 @@ where
             }
         }
 
-        //get some frames and add them to packet
-        let mut size = 0;
-        loop {
-            if size > 5 {
-                break;
+        if packet_id == tx_packet_id {
+            //get some frames and add them to packet
+            let mut size = 0;
+            loop {
+                if size > 5 {
+                    break;
+                }
+                //TODO: how long to wait for more frames?
+                let frame = match mux_rx.next().await {
+                    None => return Ok(()),
+                    Some(f) => f,
+                };
+
+                size += 1; //TODO how to measure actual size?
+                packet.add_frame(frame);
             }
-            //TODO: how long to wait for more frames?
-            let frame = match mux_rx.next().await {
-                None => return Ok(()),
-                Some(f) => f,
-            };
 
-            size += 1; //TODO how to measure actual size?
-            packet.add_frame(frame);
+            //insert packet to ring buffer
+            ringbuf_pkts_head = (ringbuf_pkts_head + 1) % ringbuf_size;
+            ringbuf_pkts[ringbuf_pkts_head] = packet.clone();
+
+            ringbuf_szs_head += (ringbuf_szs_head + 1) % ringbuf_size;
+            ringbuf_szs[ringbuf_szs_head] = 1; //TODO: insert actual byte size of packet
+        } else {
+            packet = ringbuf_pkts[(tx_packet_id + 1) as usize].clone();
         }
-
-        //insert packet to ring buffer
-        ringbuf_pkts_head = (ringbuf_pkts_head + 1) % ringbuf_size;
-        ringbuf_pkts[ringbuf_pkts_head] = packet.clone();
-
-        ringbuf_szs_head += (ringbuf_szs_head + 1) % ringbuf_size;
-        ringbuf_szs[ringbuf_szs_head] = 1; //TODO: insert actual byte size of packet
 
         //send packet trough sink
         sink.send(packet).await.expect("could not send packet");
         packet_id += 1;
+        tx_packet_id += 1;
     }
 }
