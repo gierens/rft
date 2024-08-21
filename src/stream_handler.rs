@@ -48,7 +48,7 @@ where
                         Some(s) => s.into(),
                         None => {
                             sink.send(
-                                ErrorFrame::new(cmd.stream_id(), 0, 0, "Invalid Payload").into(),
+                                ErrorFrame::new(cmd.stream_id(), "Invalid Payload").into(),
                             )
                             .await
                             .expect("stream_handler: could not send response");
@@ -61,7 +61,7 @@ where
                         Ok(f) => f,
                         Err(e) => {
                             sink.send(
-                                ErrorFrame::new(cmd.stream_id(), 0, 0, e.to_string().as_str())
+                                ErrorFrame::new(cmd.stream_id(), e.to_string().as_str())
                                     .into(),
                             )
                             .await
@@ -79,8 +79,6 @@ where
                         sink.send(
                             ErrorFrame::new(
                                 cmd.stream_id(),
-                                0,
-                                0,
                                 "You're trying to read past EOF",
                             )
                             .into(),
@@ -102,7 +100,7 @@ where
                         Ok(_) => {}
                         Err(e) => {
                             sink.send(
-                                ErrorFrame::new(cmd.stream_id(), 0, 0, e.to_string().as_str())
+                                ErrorFrame::new(cmd.stream_id(), e.to_string().as_str())
                                     .into(),
                             )
                             .await
@@ -142,7 +140,7 @@ where
                         //assemble and dispatch data frame
                         {
                             sink.send(
-                                DataFrame::new(cmd.stream_id(), 0, last_offset, data_bytes).into(),
+                                DataFrame::new(cmd.stream_id(), last_offset, data_bytes).into(),
                             )
                             .await
                             .expect("stream_handler: could not send response");
@@ -161,7 +159,7 @@ where
                         Some(s) => s.into(),
                         None => {
                             sink.send(
-                                ErrorFrame::new(cmd.stream_id(), 0, 0, "Invalid Payload").into(),
+                                ErrorFrame::new(cmd.stream_id(), "Invalid Payload").into(),
                             )
                             .await
                             .expect("stream_handler: could not send response");
@@ -180,7 +178,7 @@ where
                         Ok(f) => f,
                         Err(e) => {
                             sink.send(
-                                ErrorFrame::new(cmd.stream_id(), 0, 0, e.to_string().as_str())
+                                ErrorFrame::new(cmd.stream_id(), e.to_string().as_str())
                                     .into(),
                             )
                             .await
@@ -195,8 +193,6 @@ where
                         sink.send(
                             ErrorFrame::new(
                                 cmd.stream_id(),
-                                0,
-                                0,
                                 "Write offset does not match file size",
                             )
                             .into(),
@@ -215,7 +211,7 @@ where
                             Ok(f) => f,
                             Err(_) => {
                                 //timeout: sed error frame, exit
-                                sink.send(ErrorFrame::new(cmd.stream_id(), 0, 0, "Timeout").into())
+                                sink.send(ErrorFrame::new(cmd.stream_id(), "Timeout").into())
                                     .await
                                     .expect("stream_handler: could not send response");
                                 return Ok(());
@@ -234,8 +230,6 @@ where
                                 sink.send(
                                     ErrorFrame::new(
                                         cmd.stream_id(),
-                                        0,
-                                        0,
                                         "Write offset mismatch, aborting...",
                                     )
                                     .into(),
@@ -255,7 +249,7 @@ where
                         } else {
                             //illegal frame or channel closed: abort transmission and leave file so client can continue later
                             sink.send(
-                                ErrorFrame::new(cmd.stream_id(), 0, 0, "Illegal Frame Received")
+                                ErrorFrame::new(cmd.stream_id(), "Illegal Frame Received")
                                     .into(),
                             )
                             .await
@@ -275,8 +269,6 @@ where
                                 sink.send(
                                     AnswerFrame::new(
                                         cmd.stream_id(),
-                                        0,
-                                        0,
                                         Bytes::copy_from_slice(digest.as_ref()),
                                     )
                                     .into(),
@@ -286,7 +278,7 @@ where
                             }
                             Err(e) => {
                                 sink.send(
-                                    ErrorFrame::new(cmd.stream_id(), 0, 0, e.to_string().as_str())
+                                    ErrorFrame::new(cmd.stream_id(), e.to_string().as_str())
                                         .into(),
                                 )
                                 .await
@@ -296,7 +288,7 @@ where
                         },
                         None => {
                             sink.send(
-                                ErrorFrame::new(cmd.stream_id(), 0, 0, "Invalid Payload").into(),
+                                ErrorFrame::new(cmd.stream_id(), "Invalid Payload").into(),
                             )
                             .await
                             .expect("stream_handler: could not send response");
@@ -308,14 +300,14 @@ where
                 }
 
                 Frame::Stat(cmd) => {
-                    sink.send(ErrorFrame::new(cmd.stream_id(), 0, 0, "Not implemented").into())
+                    sink.send(ErrorFrame::new(cmd.stream_id(), "Not implemented").into())
                         .await
                         .expect("stream_handler: could not send response");
                     Ok(())
                 }
 
                 Frame::List(cmd) => {
-                    sink.send(ErrorFrame::new(cmd.stream_id(), 0, 0, "Not implemented").into())
+                    sink.send(ErrorFrame::new(cmd.stream_id(), "Not implemented").into())
                         .await
                         .expect("stream_handler: could not send response");
                     Ok(())
