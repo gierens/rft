@@ -29,6 +29,7 @@ pub struct AckHeader {
     pub packet_id: u32,
 }
 
+#[derive(Clone)]
 pub struct AckFrame {
     bytes: Bytes,
 }
@@ -86,6 +87,7 @@ pub struct ExitHeader {
     pub type_id: u8,
 }
 
+#[derive(Clone)]
 pub struct ExitFrame {
     bytes: Bytes,
 }
@@ -144,6 +146,7 @@ pub struct ConnIdChangeHeader {
     pub new_cid: u32,
 }
 
+#[derive(Clone)]
 pub struct ConnIdChangeFrame {
     bytes: Bytes,
 }
@@ -211,6 +214,7 @@ pub struct FlowControlHeader {
     pub window_size: u32,
 }
 
+#[derive(Clone)]
 pub struct FlowControlFrame {
     bytes: Bytes,
 }
@@ -270,6 +274,7 @@ pub struct AnswerHeader {
     pub stream_id: u16,
 }
 
+#[derive(Clone)]
 pub struct AnswerFrame {
     pub header_bytes: Bytes,
     pub payload_bytes: Bytes,
@@ -348,6 +353,7 @@ pub struct ErrorHeader {
     pub stream_id: u16,
 }
 
+#[derive(Clone)]
 pub struct ErrorFrame {
     pub header_bytes: Bytes,
     pub payload_bytes: Bytes,
@@ -439,6 +445,7 @@ pub struct DataHeader {
     pub offset: [u8; 6],
 }
 
+#[derive(Clone)]
 pub struct DataFrame {
     pub header_bytes: Bytes,
     pub payload_bytes: Bytes,
@@ -532,6 +539,7 @@ pub struct ReadHeader {
     pub checksum: u32,
 }
 
+#[derive(Clone)]
 pub struct ReadFrame {
     pub header_bytes: Bytes,
     pub payload_bytes: Bytes,
@@ -647,6 +655,7 @@ pub struct WriteHeader {
     pub length: [u8; 6],
 }
 
+#[derive(Clone)]
 pub struct WriteFrame {
     pub header_bytes: Bytes,
     pub payload_bytes: Bytes,
@@ -741,6 +750,7 @@ pub struct ChecksumHeader {
     pub stream_id: u16,
 }
 
+#[derive(Clone)]
 pub struct ChecksumFrame {
     pub header_bytes: Bytes,
     pub payload_bytes: Bytes,
@@ -824,6 +834,7 @@ pub struct StatHeader {
     pub stream_id: u16,
 }
 
+#[derive(Clone)]
 pub struct StatFrame {
     pub header_bytes: Bytes,
     pub payload_bytes: Bytes,
@@ -906,6 +917,7 @@ pub struct ListHeader {
     pub stream_id: u16,
 }
 
+#[derive(Clone)]
 pub struct ListFrame {
     pub header_bytes: Bytes,
     pub payload_bytes: Bytes,
@@ -991,6 +1003,7 @@ pub trait Assemble {
     fn assemble(&self) -> BytesMut;
 }
 
+#[derive(Clone)]
 pub struct Packet {
     header_bytes: Bytes,
     pub frames: Vec<Frame>,
@@ -1115,6 +1128,7 @@ impl Assemble for Packet {
     }
 }
 
+#[derive(Clone)]
 pub enum Frame {
     Ack(AckFrame),
     Exit(ExitFrame),
