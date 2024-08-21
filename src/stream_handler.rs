@@ -338,7 +338,7 @@ mod tests {
         {
             let (mut itx, irx): (Sender<Frame>, Receiver<Frame>) = channel(1);
             let (otx, mut orx): (Sender<Frame>, Receiver<Frame>) = channel(1);
-            itx.send(ChecksumFrame::new(420, 0, Path::new(path)).into())
+            itx.send(ChecksumFrame::new(420, Path::new(path)).into())
                 .await
                 .unwrap();
 
@@ -383,7 +383,7 @@ mod tests {
         {
             let (mut itx, irx): (Sender<Frame>, Receiver<Frame>) = channel(1);
             let (otx, mut orx): (Sender<Frame>, Receiver<Frame>) = channel(1);
-            itx.send(ChecksumFrame::new(420, 1, &Path::new(path)).into())
+            itx.send(ChecksumFrame::new(420, &Path::new(path)).into())
                 .await
                 .unwrap();
 
@@ -426,21 +426,21 @@ mod tests {
             let (otx, _orx): (Sender<Frame>, Receiver<Frame>) = channel(5);
 
             //send command frame
-            itx.send(WriteFrame::new(stream_id, 1, 0, 334, Path::new(path)).into())
+            itx.send(WriteFrame::new(stream_id, 0, 334, Path::new(path)).into())
                 .await
                 .unwrap();
 
             //send data frames
-            itx.send(DataFrame::new(stream_id, 2, 0, dp1_bytes).into())
+            itx.send(DataFrame::new(stream_id, 0, dp1_bytes).into())
                 .await
                 .unwrap();
 
-            itx.send(DataFrame::new(stream_id, 3, 128, dp2_bytes).into())
+            itx.send(DataFrame::new(stream_id, 128, dp2_bytes).into())
                 .await
                 .unwrap();
 
             //send EOF frame
-            itx.send(DataFrame::new(stream_id, 4, 334 - 128, dp3_bytes).into())
+            itx.send(DataFrame::new(stream_id, 334 - 128, dp3_bytes).into())
                 .await
                 .unwrap();
 
@@ -477,7 +477,7 @@ mod tests {
             let (otx, mut orx): (Sender<Frame>, Receiver<Frame>) = channel(5);
 
             //send read command
-            itx.send(ReadFrame::new(69, 1, 0, 0, 0, 0, Path::new(path)).into())
+            itx.send(ReadFrame::new(69, 0, 0, 0, 0, Path::new(path)).into())
                 .await
                 .unwrap();
 
