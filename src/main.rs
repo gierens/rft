@@ -98,7 +98,7 @@ fn main() {
                     .ok_or_else(|| anyhow::anyhow!("Files are required for client mode"))?,
                 loss_sim,
             );
-            if config.files.len() == 0 {
+            if config.files.is_empty() {
                 return Err(anyhow::anyhow!("No files specified"));
             }
             let mut client = Client::new(config);

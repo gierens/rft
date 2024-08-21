@@ -78,7 +78,7 @@ impl Client {
         //});
 
         let conn = self.conn.as_ref().context("Connection not established")?;
-        let mut packet_id = 0;
+        let packet_id = 0;
 
         // TODO Start connection establishment and ConnID
         let packet = Packet::new(0, packet_id);
@@ -95,7 +95,7 @@ impl Client {
             return Err(anyhow!("Failed to establish connection, received ConnID 0"));
         };
 
-        let (server_out_tx, mut server_out_rx): (Sender<Frame>, Receiver<Frame>) = channel(3);
+        let (server_out_tx, server_out_rx): (Sender<Frame>, Receiver<Frame>) = channel(3);
         let (server_in_tx, server_in_rx): (Sender<Frame>, Receiver<Frame>) = channel(3);
 
         // Create a sink (sender) for each file and have the same receiver (server)
@@ -145,7 +145,7 @@ impl Client {
         sinks: Vec<Sender<Frame>>,
     ) -> Result<(), anyhow::Error> {
         // TODO
-        return Ok(());
+        Ok(())
     }
 
     async fn packet_assembly_and_sender(
