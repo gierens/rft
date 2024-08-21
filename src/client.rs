@@ -1,9 +1,9 @@
 use crate::loss_simulation::LossSimulation;
-use crate::wire::*;
 use crate::stream_handler::stream_handler;
-use futures::channel::mpsc::{channel, Receiver, Sender};
+use crate::wire::*;
 use anyhow::{anyhow, Context};
-use futures::SinkExt;
+use futures::channel::mpsc::{channel, Receiver, Sender};
+use futures::{SinkExt, StreamExt};
 use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
 use std::path::PathBuf;
 
@@ -64,26 +64,10 @@ impl Client {
         Ok(self)
     }
 
-   
+    // TODO: check for good buffer sizes
+    #[tokio::main]
     pub async fn start(&mut self) -> Result<(), anyhow::Error> {
         // idea: https://excalidraw.com/#json=SmceuVrZR7teBVxFnKskC,6anX_11ILOMBKLWYSJQrng
-        let conn = self.conn.as_ref().context("Connection not established")?;
-
-        // TODO Start connection establishment and ConnID
-        let packet = Packet::new(0);
-        let bytes = packet.assemble();
-        conn.send(&bytes).context("Failed to send packet")?;
-        
-        let mut buf = [0; 1024];
-        let size = conn.recv(&mut buf)?;
-        let packet = Packet::parse_buf(&buf[..size]).context("Failed to parse packet")?;
-        
-        // Check for ConnID
-        let conn_id = packet.header().connection_id;
-        if conn_id == 0 {
-            return Err(anyhow!("Failed to establish connection"));
-        };
-
         // send frames on one stream per file
         // one stream handler per file
         // send server read cmd first
@@ -93,9 +77,27 @@ impl Client {
         //    stream_handler(in_rx, out_sink).await;
         //});
 
-        let (server_out_tx, server_out_rx): (Sender<Frame>, Receiver<Frame>) = channel(3);
+        let conn = self.conn.as_ref().context("Connection not established")?;
+        let mut packet_id = 0;
+
+        // TODO Start connection establishment and ConnID
+        let packet = Packet::new(0, packet_id);
+        let bytes = packet.assemble();
+        conn.send(&bytes).context("Failed to send packet")?;
+
+        let mut buf = [0; 1024];
+        let size = conn.recv(&mut buf)?;
+        let packet = Packet::parse_buf(&buf[..size]).context("Failed to parse packet")?;
+
+        // Check for ConnID
+        let conn_id = packet.header().connection_id;
+        if conn_id == 0 {
+            return Err(anyhow!("Failed to establish connection, received ConnID 0"));
+        };
+
+        let (server_out_tx, mut server_out_rx): (Sender<Frame>, Receiver<Frame>) = channel(3);
         let (server_in_tx, server_in_rx): (Sender<Frame>, Receiver<Frame>) = channel(3);
-        
+
         // Create a sink (sender) for each file and have the same receiver (server)
         let mut sinks: Vec<Sender<Frame>> = Vec::new();
         for _ in &self.config.files {
@@ -104,62 +106,93 @@ impl Client {
         }
 
         // Start the stream_handlers
-        for sink in &mut self.sinks {
-            let handle = tokio::spawn(stream_handler(server_in_rx, sink));
-            self.handles.push(handle);
+        for sink in &self.sinks {
+            //let handle = tokio::spawn(stream_handler(server_in_rx, sink.clone())); // TODO cloning here okay?
+            //self.handles.push(handle);
         }
 
-        // Send the read command to the server
+        // Send the read commands to the server
         for (sink, file) in sinks.iter().zip(&self.config.files) {
             let path = file.as_path();
-            let read_frame = ReadFrame::new(0, 0, 0, 0, 1024, 0, path);
+            let read_frame = ReadFrame::new(0, 0, 0, 1024, 0, path);
             let read_cmd = Frame::Read(read_frame);
-            sink.clone().send(read_cmd).await.expect("Failed to send read command");
+            sink.clone()
+                .send(read_cmd)
+                .await
+                .expect("Failed to send read command");
         }
-    
+
+        // Start the packet switcher
+        // Run as async task
+        // Switch for WriteFrame based on path, for the others idk
+        // TODO
+        // tokio::spawn(Self::packet_switcher(server_in_rx, sinks));
+
         // Start assembling frames to packets and send them to the server
-        loop {
-            let mut packet = Packet::new(conn_id);
-            let mut size = 0;
-            loop {
-                // TODO: find proper value or make it depend on the packet content
-                if size > 2 {
+        tokio::spawn(Self::packet_assembly_and_sender(
+            server_out_rx,
+            conn.try_clone()?,
+            conn_id,
+        ));
+
+        return Ok(());
+    }
+
+    /// Switches the incoming Packets from the server and distributes the Frames in the Packets to the responsible sinks
+    /// to allow the correct stream_handler to handle the Frames
+    async fn packet_switcher(
+        server_in_rx: Receiver<Packet>, // TOOD: do we receive packets over the UDPSocket or channel?
+        sinks: Vec<Sender<Frame>>,
+    ) -> Result<(), anyhow::Error> {
+        // TODO
+        return Ok(());
+    }
+
+    async fn packet_assembly_and_sender(
+        mut server_out_rx: Receiver<Frame>,
+        socket: UdpSocket,
+        conn_id: u32,
+    ) -> Result<(), anyhow::Error> {
+        // TODO: proper usage of packet_id
+        let mut packet_id = 0;
+
+        while let Some(frame) = server_out_rx.next().await {
+            let mut packet = Packet::new(conn_id, packet_id);
+            packet.add_frame(frame);
+
+            for _ in 0..2 {
+                // Add up to 2 more frames per packet
+                if let Some(frame) = server_out_rx.next().await {
+                    packet.add_frame(frame);
+                } else {
                     break;
                 }
-                for sink in &mut self.sinks {
-                    let frame = match sink.next().await {
-                        Some(frame) => frame,
-                        None => continue,
-                    };
-                    packet.add_frame(frame);
-                    size += 1;
-                }
             }
-            
-            server_out_rx.send(packet).await.expect("Failed to send packet");
+
+            let buf = packet.assemble();
+            socket.send(&buf).context("Failed to send packet")?;
+            packet_id += 1;
         }
 
         Ok(())
     }
 
-    // sink switcher
-
-//    /// Create files for writing the requested files
-//    fn create_files(&mut self) -> io::Result<()> {
-//        let mut files = Vec::new();
-//
-//        for f_path in &self.config.files {
-//            let file = OpenOptions::new()
-//                .read(true)
-//                .write(true)
-//                .create(true)
-//                .truncate(true)
-//                .open(f_path)?;
-//            
-//            files.push(file);
-//        }
-//
-//        self.files = files;
-//        Ok(())
-//    }
+    //    /// Create files for writing the requested files
+    //    fn create_files(&mut self) -> io::Result<()> {
+    //        let mut files = Vec::new();
+    //
+    //        for f_path in &self.config.files {
+    //            let file = OpenOptions::new()
+    //                .read(true)
+    //                .write(true)
+    //                .create(true)
+    //                .truncate(true)
+    //                .open(f_path)?;
+    //
+    //            files.push(file);
+    //        }
+    //
+    //        self.files = files;
+    //        Ok(())
+    //    }
 }
