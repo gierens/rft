@@ -47,11 +47,9 @@ where
                     let path: String = match cmd.path().to_str() {
                         Some(s) => s.into(),
                         None => {
-                            sink.send(
-                                ErrorFrame::new(cmd.stream_id(), 0, 0, "Invalid Payload").into(),
-                            )
-                            .await
-                            .expect("stream_handler: could not send response");
+                            sink.send(ErrorFrame::new(cmd.stream_id(), "Invalid Payload").into())
+                                .await
+                                .expect("stream_handler: could not send response");
                             return Ok(());
                         }
                     };
@@ -61,8 +59,7 @@ where
                         Ok(f) => f,
                         Err(e) => {
                             sink.send(
-                                ErrorFrame::new(cmd.stream_id(), 0, 0, e.to_string().as_str())
-                                    .into(),
+                                ErrorFrame::new(cmd.stream_id(), e.to_string().as_str()).into(),
                             )
                             .await
                             .expect("stream_handler: could not send response");
@@ -77,13 +74,8 @@ where
                     //check if trying to read past EOF
                     if cmd.offset() + cmd.length() > file_size {
                         sink.send(
-                            ErrorFrame::new(
-                                cmd.stream_id(),
-                                0,
-                                0,
-                                "You're trying to read past EOF",
-                            )
-                            .into(),
+                            ErrorFrame::new(cmd.stream_id(), "You're trying to read past EOF")
+                                .into(),
                         )
                         .await
                         .expect("stream_handler: could not send response");
@@ -102,8 +94,7 @@ where
                         Ok(_) => {}
                         Err(e) => {
                             sink.send(
-                                ErrorFrame::new(cmd.stream_id(), 0, 0, e.to_string().as_str())
-                                    .into(),
+                                ErrorFrame::new(cmd.stream_id(), e.to_string().as_str()).into(),
                             )
                             .await
                             .expect("stream_handler: could not send response");
@@ -142,7 +133,7 @@ where
                         //assemble and dispatch data frame
                         {
                             sink.send(
-                                DataFrame::new(cmd.stream_id(), 0, last_offset, data_bytes).into(),
+                                DataFrame::new(cmd.stream_id(), last_offset, data_bytes).into(),
                             )
                             .await
                             .expect("stream_handler: could not send response");
@@ -160,11 +151,9 @@ where
                     let path: String = match cmd.path().to_str() {
                         Some(s) => s.into(),
                         None => {
-                            sink.send(
-                                ErrorFrame::new(cmd.stream_id(), 0, 0, "Invalid Payload").into(),
-                            )
-                            .await
-                            .expect("stream_handler: could not send response");
+                            sink.send(ErrorFrame::new(cmd.stream_id(), "Invalid Payload").into())
+                                .await
+                                .expect("stream_handler: could not send response");
                             return Ok(());
                         }
                     };
@@ -180,8 +169,7 @@ where
                         Ok(f) => f,
                         Err(e) => {
                             sink.send(
-                                ErrorFrame::new(cmd.stream_id(), 0, 0, e.to_string().as_str())
-                                    .into(),
+                                ErrorFrame::new(cmd.stream_id(), e.to_string().as_str()).into(),
                             )
                             .await
                             .expect("stream_handler: could not send response");
@@ -195,8 +183,6 @@ where
                         sink.send(
                             ErrorFrame::new(
                                 cmd.stream_id(),
-                                0,
-                                0,
                                 "Write offset does not match file size",
                             )
                             .into(),
@@ -215,7 +201,7 @@ where
                             Ok(f) => f,
                             Err(_) => {
                                 //timeout: sed error frame, exit
-                                sink.send(ErrorFrame::new(cmd.stream_id(), 0, 0, "Timeout").into())
+                                sink.send(ErrorFrame::new(cmd.stream_id(), "Timeout").into())
                                     .await
                                     .expect("stream_handler: could not send response");
                                 return Ok(());
@@ -234,8 +220,6 @@ where
                                 sink.send(
                                     ErrorFrame::new(
                                         cmd.stream_id(),
-                                        0,
-                                        0,
                                         "Write offset mismatch, aborting...",
                                     )
                                     .into(),
@@ -255,8 +239,7 @@ where
                         } else {
                             //illegal frame or channel closed: abort transmission and leave file so client can continue later
                             sink.send(
-                                ErrorFrame::new(cmd.stream_id(), 0, 0, "Illegal Frame Received")
-                                    .into(),
+                                ErrorFrame::new(cmd.stream_id(), "Illegal Frame Received").into(),
                             )
                             .await
                             .expect("stream_handler: could not send response");
@@ -275,8 +258,6 @@ where
                                 sink.send(
                                     AnswerFrame::new(
                                         cmd.stream_id(),
-                                        0,
-                                        0,
                                         Bytes::copy_from_slice(digest.as_ref()),
                                     )
                                     .into(),
@@ -286,8 +267,7 @@ where
                             }
                             Err(e) => {
                                 sink.send(
-                                    ErrorFrame::new(cmd.stream_id(), 0, 0, e.to_string().as_str())
-                                        .into(),
+                                    ErrorFrame::new(cmd.stream_id(), e.to_string().as_str()).into(),
                                 )
                                 .await
                                 .expect("stream_handler: could not send response");
@@ -295,11 +275,9 @@ where
                             }
                         },
                         None => {
-                            sink.send(
-                                ErrorFrame::new(cmd.stream_id(), 0, 0, "Invalid Payload").into(),
-                            )
-                            .await
-                            .expect("stream_handler: could not send response");
+                            sink.send(ErrorFrame::new(cmd.stream_id(), "Invalid Payload").into())
+                                .await
+                                .expect("stream_handler: could not send response");
                             return Ok(());
                         }
                     }
@@ -308,14 +286,14 @@ where
                 }
 
                 Frame::Stat(cmd) => {
-                    sink.send(ErrorFrame::new(cmd.stream_id(), 0, 0, "Not implemented").into())
+                    sink.send(ErrorFrame::new(cmd.stream_id(), "Not implemented").into())
                         .await
                         .expect("stream_handler: could not send response");
                     Ok(())
                 }
 
                 Frame::List(cmd) => {
-                    sink.send(ErrorFrame::new(cmd.stream_id(), 0, 0, "Not implemented").into())
+                    sink.send(ErrorFrame::new(cmd.stream_id(), "Not implemented").into())
                         .await
                         .expect("stream_handler: could not send response");
                     Ok(())
@@ -346,7 +324,7 @@ mod tests {
         {
             let (mut itx, irx): (Sender<Frame>, Receiver<Frame>) = channel(1);
             let (otx, mut orx): (Sender<Frame>, Receiver<Frame>) = channel(1);
-            itx.send(ChecksumFrame::new(420, 0, Path::new(path)).into())
+            itx.send(ChecksumFrame::new(420, Path::new(path)).into())
                 .await
                 .unwrap();
 
@@ -391,7 +369,7 @@ mod tests {
         {
             let (mut itx, irx): (Sender<Frame>, Receiver<Frame>) = channel(1);
             let (otx, mut orx): (Sender<Frame>, Receiver<Frame>) = channel(1);
-            itx.send(ChecksumFrame::new(420, 1, &Path::new(path)).into())
+            itx.send(ChecksumFrame::new(420, &Path::new(path)).into())
                 .await
                 .unwrap();
 
@@ -434,21 +412,21 @@ mod tests {
             let (otx, _orx): (Sender<Frame>, Receiver<Frame>) = channel(5);
 
             //send command frame
-            itx.send(WriteFrame::new(stream_id, 1, 0, 334, Path::new(path)).into())
+            itx.send(WriteFrame::new(stream_id, 0, 334, Path::new(path)).into())
                 .await
                 .unwrap();
 
             //send data frames
-            itx.send(DataFrame::new(stream_id, 2, 0, dp1_bytes).into())
+            itx.send(DataFrame::new(stream_id, 0, dp1_bytes).into())
                 .await
                 .unwrap();
 
-            itx.send(DataFrame::new(stream_id, 3, 128, dp2_bytes).into())
+            itx.send(DataFrame::new(stream_id, 128, dp2_bytes).into())
                 .await
                 .unwrap();
 
             //send EOF frame
-            itx.send(DataFrame::new(stream_id, 4, 334 - 128, dp3_bytes).into())
+            itx.send(DataFrame::new(stream_id, 334 - 128, dp3_bytes).into())
                 .await
                 .unwrap();
 
@@ -485,7 +463,7 @@ mod tests {
             let (otx, mut orx): (Sender<Frame>, Receiver<Frame>) = channel(5);
 
             //send read command
-            itx.send(ReadFrame::new(69, 1, 0, 0, 0, 0, Path::new(path)).into())
+            itx.send(ReadFrame::new(69, 0, 0, 0, 0, Path::new(path)).into())
                 .await
                 .unwrap();
 

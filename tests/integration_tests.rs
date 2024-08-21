@@ -5,8 +5,8 @@ fn test_ack_packet_parse() {
     // TODO assert packet content equality
     // Assert that we are able to parse that packet wihtout any errors
     let _packet = Packet::parse_buf(&buf).expect("Failed to parse packet");
-    let mut expected = Packet::new(69);
-    expected.add_frame(Frame::Ack(AckFrame::new(1, 12)));
+    let mut expected = Packet::new(69, 42);
+    expected.add_frame(Frame::Ack(AckFrame::new(12)));
     let expected_buf = expected.assemble();
     assert_eq!(buf, expected_buf);
 }
@@ -18,12 +18,11 @@ fn test_ack_data_packet_parse() {
     // TODO assert packet content equality
     // Assert that we are able to parse that packet wihtout any errors
     let _packet = Packet::parse_buf(&buf).expect("Failed to parse packet");
-    let mut expected = Packet::new(69);
-    expected.add_frame(Frame::Ack(AckFrame::new(42, 3)));
+    let mut expected = Packet::new(69, 59);
+    expected.add_frame(Frame::Ack(AckFrame::new(42)));
     expected.add_frame(Frame::Data(DataFrame::new(
         1,
         2,
-        3,
         "Did you ever hear the Tragedy of Darth Plagueis the Wise?"
             .as_bytes()
             .into(),
