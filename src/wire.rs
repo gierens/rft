@@ -1266,6 +1266,7 @@ mod tests {
         let header = PacketHeader {
             version: 1,
             connection_id: 1,
+            packet_id: 2,
             checksum: [0x1, 0x2, 0x3],
         };
         assert_eq!(header.checksum(), 0x030201);
@@ -1273,44 +1274,43 @@ mod tests {
 
     #[test]
     fn test_data_fields() {
-        let frame = DataFrame::new(1, 2, 3, Bytes::from_static(&[1, 2, 3, 4]));
+        let frame = DataFrame::new(1, 2, Bytes::from_static(&[1, 2, 3, 4]));
         assert_eq!(frame.stream_id(), 1);
-        assert_eq!(frame.frame_id(), 2);
-        assert_eq!(frame.offset(), 3);
+        assert_eq!(frame.offset(), 2);
         assert_eq!(frame.payload(), &Bytes::from_static(&[1, 2, 3, 4]));
     }
 
     #[test]
     fn test_assemble_empty_packet() {
-        let packet = Packet::new(2);
+        let packet = Packet::new(2, 4);
         assert_eq!(
             packet.assemble(),
-            Bytes::from_static(&[1, 2, 0, 0, 0, 0xde, 0xce, 0x17])
+            Bytes::from_static(&[1, 2, 0, 0, 0, 4, 0, 0, 0, 0xd2, 0x17, 0x53])
         );
     }
 
     #[test]
     fn test_validate_checksum() {
-        let mut packet = Packet::new(420);
-        let frame = AckFrame::new(1, 1);
+        let mut packet = Packet::new(420, 42);
+        let frame = AckFrame::new(1);
         packet.add_frame(frame.into());
 
         let mut bytes = packet.assemble();
-        bytes[5] = 0;
-        bytes[6] = 0;
-        bytes[7] = 0;
+        bytes[9] = 0;
+        bytes[10] = 0;
+        bytes[11] = 0;
         let checksum = crc32fast::hash(&bytes) & 0x00FFFFFF;
-        bytes[5] = checksum as u8;
-        bytes[6] = (checksum >> 8) as u8;
-        bytes[7] = (checksum >> 16) as u8;
+        bytes[9] = checksum as u8;
+        bytes[10] = (checksum >> 8) as u8;
+        bytes[11] = (checksum >> 16) as u8;
         let b = Bytes::from(bytes);
         assert!(Packet::validate_checksum(&b));
     }
 
     #[test]
     fn test_packet_assemble() {
-        let mut packet = Packet::new(420);
-        let frame = AckFrame::new(1, 1);
+        let mut packet = Packet::new(420, 69);
+        let frame = AckFrame::new(1);
         packet.add_frame(frame.into());
         let assembled = packet.assemble();
         assert_eq!(
@@ -1321,9 +1321,9 @@ mod tests {
 
     #[test]
     fn test_assemble_and_parse_packet() {
-        let mut packet1 = Packet::new(1);
+        let mut packet1 = Packet::new(1, 2);
         // packet1.add_frame(AckFrame::new(1, 1).into());
-        packet1.add_frame(AnswerFrame::new(1, 2, 3, vec![1, 2, 3, 4, 5, 6, 7, 8].into()).into());
+        packet1.add_frame(AnswerFrame::new(1, vec![1, 2, 3, 4, 5, 6, 7, 8].into()).into());
         let bytes1 = packet1.assemble();
         let packet2 = Packet::parse(bytes1.clone().into()).expect("Parsing failed");
         let bytes2 = packet2.assemble();
@@ -1332,7 +1332,7 @@ mod tests {
 
     #[test]
     fn test_assemble_and_parse_simple_packet() {
-        let packet1 = Packet::new(1);
+        let packet1 = Packet::new(1, 2);
         let bytes1 = packet1.assemble();
         let packet2 = Packet::parse(bytes1.clone().into()).expect("Parsing failed");
         let bytes2 = packet2.assemble();
@@ -1342,8 +1342,8 @@ mod tests {
     //#[test] // generates test data
     #[allow(dead_code)]
     fn write_ack_packet_to_file() {
-        let mut packet = Packet::new(69);
-        packet.add_frame(Frame::Ack(AckFrame::new(1, 12)));
+        let mut packet = Packet::new(69, 42);
+        packet.add_frame(Frame::Ack(AckFrame::new(12)));
         let bytes = packet.assemble();
         std::fs::write("./tests/data/ack_packet.bin", bytes).expect("Failed to write file");
     }
@@ -1351,12 +1351,11 @@ mod tests {
     //#[test] // generated the test data
     #[allow(dead_code)]
     fn write_ack_data_packet_to_file() {
-        let mut packet = Packet::new(69);
-        packet.add_frame(Frame::Ack(AckFrame::new(42, 3)));
+        let mut packet = Packet::new(69, 59);
+        packet.add_frame(Frame::Ack(AckFrame::new(42)));
         packet.add_frame(Frame::Data(DataFrame::new(
             1,
             2,
-            3,
             "Did you ever hear the Tragedy of Darth Plagueis the Wise?"
                 .as_bytes()
                 .into(),
