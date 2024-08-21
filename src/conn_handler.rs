@@ -247,7 +247,10 @@ where
 
         //send packet trough sink
         sink.send(packet).await.expect("could not send packet");
-        packet_id += 1;
+
+        if packet_id == tx_packet_id {
+            packet_id += 1;
+        }
         tx_packet_id += 1;
     }
 }
