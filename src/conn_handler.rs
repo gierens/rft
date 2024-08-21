@@ -131,13 +131,14 @@ where
     });
 
     //start frame muxing and packet assembly
+    let mut packet_id = 0;
     loop {
         //get connection id
         let connid;
         {
             connid = *connection_id.lock().unwrap();
         }
-        let mut packet = Packet::new(connid);
+        let mut packet = Packet::new(connid, packet_id);
 
         //get some frames and add them to packet
         let mut size = 0;
@@ -157,5 +158,6 @@ where
 
         //send packet trough sink
         sink.send(packet).await.expect("could not send packet");
+        packet_id += 1;
     }
 }
