@@ -187,8 +187,7 @@ where
     let ringbuf_size = 2048; //this is fixed, has to be large enough
 
     //ring buffer for sizes of sent packets
-    let mut ringbuf_szs: Vec<u32> = Vec::new();
-    ringbuf_szs.resize(ringbuf_size, 0);
+    let mut ringbuf_szs: Vec<u32> = vec![0; ringbuf_size];
 
     //ring buffer for sent packets
     let mut ringbuf_pkts: Vec<Packet> = Vec::new();
