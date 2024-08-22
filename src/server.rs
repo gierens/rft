@@ -1,10 +1,11 @@
 use crate::conn_handler::connection_handler;
 use crate::loss_simulation::LossSimulation;
-use crate::wire::Packet;
+use crate::wire::{Assemble, Packet};
 use futures::channel::mpsc;
-use futures::SinkExt;
+use futures::{SinkExt, StreamExt};
 use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::sync::{Arc, Mutex};
 use tokio::net::UdpSocket;
 
 pub struct Server {
@@ -23,26 +24,33 @@ impl Server {
 
     pub async fn run(&self) -> anyhow::Result<()> {
         //HashMap for client IPs
-        let mut output_map: HashMap<u32, SocketAddr> = HashMap::new();
+        //let mut output_map: HashMap<u32, SocketAddr> = HashMap::new();
+        let output_map: Arc<Mutex<HashMap<u32, SocketAddr>>> = Arc::new(Mutex::new(HashMap::new()));
 
         //HashMap for connection handlers
         let mut input_map: HashMap<u32, mpsc::Sender<Packet>> = HashMap::new();
 
         //mpsc channel <Packet>: handler output -> transmitter input
-        let (mux_tx, mux_rx) = mpsc::channel(32);
+        let (mux_tx, mut mux_rx) = mpsc::channel(32);
 
         let socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), self.port))
             .await
             .expect("Failed to bind socket");
-        let mut buf = [0; 1024];
+        let udp_rx = Arc::new(socket);
+        let udp_tx = udp_rx.clone();
 
         //TODO: delete closed connections from HashMaps
 
         //start packet switching task
+        let mut output_map_switch = output_map.clone();
         tokio::spawn(async move {
+            let mut buf = [0; 1024];
             let mut cid_ctr = 1u32;
             loop {
-                let size = socket.recv(&mut buf).await.expect("Socket error");
+                let (size, client_addr) = udp_rx
+                    .recv_from(&mut buf)
+                    .await
+                    .expect("UDP Socket rx error");
                 let packet = Packet::parse_buf(&buf[..size]).expect("Failed to parse packet");
 
                 match packet.connection_id() {
@@ -52,6 +60,10 @@ impl Server {
                         ctx.send(packet).await.unwrap();
 
                         input_map.insert(cid_ctr, ctx);
+                        {
+                            let mut omap_mtx = output_map_switch.lock().unwrap();
+                            omap_mtx.insert(cid_ctr, client_addr);
+                        }
 
                         let mux_tx_c = mux_tx.clone();
                         tokio::spawn(async move {
@@ -74,7 +86,10 @@ impl Server {
                                     Err(_) => {
                                         eprintln!("Packet for dead connection handler discarded!");
                                         input_map.remove(&cid);
-                                        output_map.remove(&cid);
+                                        {
+                                            let mut omap_mtx = output_map_switch.lock().unwrap();
+                                            omap_mtx.remove(&cid);
+                                        }
                                     }
                                 }
                             }
@@ -84,6 +99,22 @@ impl Server {
             }
         });
 
-        Ok(())
+        //start packet sending
+        loop {
+            let packet = mux_rx.next().await.expect("server mux_rx closed");
+            let dest;
+            {
+                let omap_mtx = output_map.lock().unwrap();
+                dest = omap_mtx
+                    .get(&packet.packet_id())
+                    .expect("connID not in output_map at tx")
+                    .clone();
+            }
+            let packet_bytes = packet.assemble();
+            udp_tx
+                .send_to(&*packet_bytes, dest)
+                .await
+                .expect("UDP Socket tx error");
+        }
     }
 }
