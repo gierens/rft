@@ -1,10 +1,12 @@
 use crate::stream_handler::stream_handler;
-use crate::wire::{ErrorFrame, Frame, Packet, Size};
+use crate::wire::{AckFrame, ErrorFrame, Frame, Packet, Size};
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use std::cmp::min;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, Condvar, Mutex};
+use std::time::Duration;
+use tokio::time::timeout;
 
 #[allow(dead_code)]
 #[allow(unused_mut)]
@@ -12,23 +14,21 @@ use std::sync::{Arc, Condvar, Mutex};
 pub async fn connection_handler<S: Sink<Packet> + Unpin>(
     mut stream: impl Stream<Item = Packet> + Unpin + Send + 'static,
     mut sink: S,
+    connection_id: u32,
 ) -> anyhow::Result<()>
 where
     <S as futures::Sink<Packet>>::Error: Debug,
 {
     //for now, assume established connection
-    let connection_id = Arc::new(Mutex::new(42069u32));
     let flowwnd = Arc::new(Mutex::new(2048u32));
     let last_ackd_ids: Arc<(Mutex<[u32; 2]>, Condvar)> =
         Arc::new((Mutex::new([0, 0]), Condvar::new()));
 
     //slow start threshold
     let mut cwnd = Arc::new(Mutex::new((4u32, u32::MAX, false)));
-    //let mut ssthresh:u32 = u32::MAX;
-    //let mut congestion_avoidance = false;
 
     //create mpsc channel for multiplexing  TODO: what is a good buffer size here?
-    let (mux_tx, mut mux_rx) = futures::channel::mpsc::channel(32);
+    let (mut mux_tx, mut mux_rx) = futures::channel::mpsc::channel(32);
 
     //TODO: maybe avoid 'static somehow?
 
@@ -49,6 +49,12 @@ where
                 Some(p) => p,
             };
 
+            //send ACK TODO: cumulative ACKs
+            mux_tx
+                .send(AckFrame::new(packet.packet_id()).into())
+                .await
+                .expect("could not send ACK");
+
             for frame in packet.frames {
                 match frame.stream_id() {
                     0 => {
@@ -60,19 +66,7 @@ where
                                 return;
                             }
                             Frame::ConnIdChange(f) => {
-                                //TODO: have mutex'd connId variable and change it here
-                                //check old stream ID
-                                {
-                                    if *connid_switch.lock().unwrap() != f.old_cid() {
-                                        //for now: ignore
-                                        //TODO: ???
-                                        eprintln!("Wrong old CID in connection handler change_CID");
-                                    }
-                                }
-
-                                //update CID
-                                let mut cid_mtx = connid_switch.lock().unwrap();
-                                *cid_mtx = f.new_cid();
+                                //TODO
                             }
                             Frame::FlowControl(f) => {
                                 //update flow window size
@@ -186,7 +180,7 @@ where
     //start frame muxing and packet assembly
     let mut packet_id = 0; //last used packet ID, increment before use
     let mut tx_packet_id = 0; // next packet id to be sent - 1 (for rewinding)
-    let mut last_ackd_pckt_id = 0;
+    let mut last_ackd_pckt_id = 0; //last of our packets that was ACKd
     let total_bytes = 0u64;
     let last_ackd_bytes = 0u64;
 
@@ -206,12 +200,7 @@ where
     let max_packet_size = 1024;
 
     loop {
-        //get connection id
-        let connid;
-        {
-            connid = *connection_id.lock().unwrap();
-        }
-        let mut packet = Packet::new(connid, packet_id + 1);
+        let mut packet = Packet::new(connection_id, packet_id + 1);
 
         //check if we need to wait for ACK, rewind, or continue TODO: timeout and re-slow start
         let flowwnd_sample;
@@ -264,21 +253,31 @@ where
         if packet_id == tx_packet_id {
             //get some frames and add them to packet
             let mut size = 0;
+
+            //wait unboundedly long for fist frame
+            let frame = if !peeked_frame.is_empty() {
+                peeked_frame.pop().unwrap()
+            } else {
+                match mux_rx.next().await {
+                    None => return Ok(()),
+                    Some(f) => f,
+                }
+            };
+
             loop {
                 //TODO: how long to wait for more frames?
-                let frame = if !peeked_frame.is_empty() {
-                    peeked_frame.pop().unwrap()
-                } else {
-                    match mux_rx.next().await {
-                        None => return Ok(()),
+                //wait a short time for further frames
+                let frame = match timeout(Duration::from_millis(1), mux_rx.next()).await {
+                    Ok(fo) => match fo {
+                        None => {
+                            return Ok(());
+                        }
                         Some(f) => f,
+                    },
+                    Err(_) => {
+                        //send packet if no next frame arrives in time
+                        break;
                     }
-                };
-
-                //continue only if frame is data frame with payload size > 0 (not EOF)
-                let send_pckt: bool = match frame {
-                    Frame::Data(_) => frame.size() > 74,
-                    _ => true,
                 };
 
                 //check if max size surpassed -> save overhanging frame and break
@@ -289,11 +288,6 @@ where
 
                 size += packet.size(); //TODO how to measure actual size?
                 packet.add_frame(frame);
-
-                //break for frames to be send immediately
-                if send_pckt {
-                    break;
-                }
             }
 
             //insert packet size to packet size ring buffer
