@@ -16,7 +16,7 @@ crc32fast = "1.4"
 futures = "0.3"
 data-encoding = "2.6"
 ring = "0.17"
-tokio = {version = "1.39", features = ["macros", "rt", "time", "rt-multi-thread"] }
+tokio = {version = "1.39", features = ["macros", "net", "rt", "time", "rt-multi-thread"] }
 rand = "0.8"
 
 [dev-dependencies.cargo-husky]
