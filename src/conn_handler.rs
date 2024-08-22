@@ -33,7 +33,6 @@ where
     //TODO: maybe avoid 'static somehow?
 
     //start frame switch task
-    let connid_switch = connection_id.clone();
     let flowwnd_switch = flowwnd.clone();
     let cwnd_switch = cwnd.clone();
     let last_ackids_switch = last_ackd_ids.clone();
