@@ -105,14 +105,13 @@ impl Server {
             let dest;
             {
                 let omap_mtx = output_map.lock().unwrap();
-                dest = omap_mtx
+                dest = *omap_mtx
                     .get(&packet.packet_id())
-                    .expect("connID not in output_map at tx")
-                    .clone();
+                    .expect("connID not in output_map at tx");
             }
             let packet_bytes = packet.assemble();
             udp_tx
-                .send_to(&*packet_bytes, dest)
+                .send_to(&packet_bytes, dest)
                 .await
                 .expect("UDP Socket tx error");
         }
