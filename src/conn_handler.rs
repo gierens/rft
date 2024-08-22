@@ -60,6 +60,7 @@ where
                         match frame {
                             Frame::Exit(_) => {
                                 //TODO: how to kill all the handler processes? -> likely best solution: just let them time out
+                                //TODO: delete closed connections from server hashmaps
                                 //handlers will terminate if input channels are closed //TODO: read
                                 //parent process will return if mpsc channel has no more senders
                                 return;
