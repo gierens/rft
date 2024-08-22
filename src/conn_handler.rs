@@ -181,19 +181,17 @@ where
     let mut packet_id = 0; //last used packet ID, increment before use
     let mut tx_packet_id = 0; // next packet id to be sent - 1 (for rewinding)
     let mut last_ackd_pckt_id = 0; //last of our packets that was ACKd
-    let total_bytes = 0u64;
-    let last_ackd_bytes = 0u64;
+    let mut total_bytes = 0u64; //bytes send so far, aligned with tx_packet_id (NOT packet_id)
+    let mut last_ackd_bytes = 0u64;
 
     let ringbuf_size = 2048; //this is fixed, has to be large enough
 
     //ring buffer for sizes of sent packets
     let mut ringbuf_szs: Vec<u32> = Vec::new();
-    let mut ringbuf_szs_head = 0;
     ringbuf_szs.resize(ringbuf_size, 0);
 
     //ring buffer for sent packets
     let mut ringbuf_pkts: Vec<Packet> = Vec::new();
-    let mut ringbuf_pkts_head = 0; //last written element (increment before write)
     ringbuf_pkts.resize(ringbuf_size, Packet::new(0, 0));
 
     let mut peeked_frame: Vec<Frame> = Vec::new();
@@ -211,7 +209,7 @@ where
         {
             cwnd_sample = *cwnd.lock().unwrap();
         }
-        if tx_packet_id - last_ackd_pckt_id >= min(flowwnd_sample, cwnd_sample.0) {
+        if total_bytes - last_ackd_bytes >= min(flowwnd_sample, cwnd_sample.0) as u64 {
             let mut illegal_ack = false;
 
             {
@@ -220,6 +218,10 @@ where
                 loop {
                     if ids[0] > last_ackd_pckt_id {
                         //new ACK received
+                        //spool forward bytes received
+                        for i in (last_ackd_pckt_id + 1)..(ids[0] + 1) {
+                            last_ackd_bytes += ringbuf_szs[(i as usize) % ringbuf_size] as u64;
+                        }
                         last_ackd_pckt_id = ids[0];
                         break;
                     }
@@ -231,6 +233,7 @@ where
                     if ids[0] == ids[1] {
                         //double ACK received, rewind
                         tx_packet_id = last_ackd_pckt_id;
+                        total_bytes = last_ackd_bytes;
                         break;
                     }
 
@@ -291,17 +294,17 @@ where
             }
 
             //insert packet size to packet size ring buffer
-            ringbuf_szs_head += (ringbuf_szs_head + 1) % ringbuf_size;
-            ringbuf_szs[ringbuf_szs_head] = packet.size() as u32;
+            ringbuf_szs[((packet_id + 1) as usize) % ringbuf_size] = packet.size() as u32;
 
             //insert packet to ring buffer
-            ringbuf_pkts_head = (ringbuf_pkts_head + 1) % ringbuf_size;
-            ringbuf_pkts[ringbuf_pkts_head] = packet.clone();
+            ringbuf_pkts[((packet_id + 1) as usize) % ringbuf_size] = packet.clone();
             //TODO: delete packets out of window to save memory
         } else {
             //resend from ring buffer
             packet = ringbuf_pkts[((tx_packet_id + 1) as usize) % ringbuf_size].clone();
         }
+
+        total_bytes += packet.size() as u64;
 
         //send packet trough sink
         sink.send(packet).await.expect("could not send packet");
