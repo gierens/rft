@@ -1,5 +1,5 @@
 use crate::stream_handler::stream_handler;
-use crate::wire::{ErrorFrame, Frame, Packet};
+use crate::wire::{ErrorFrame, Frame, Packet, Size};
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use std::cmp::min;
 use std::collections::HashMap;
@@ -22,6 +22,11 @@ where
     let last_ackd_ids: Arc<(Mutex<[u32; 2]>, Condvar)> =
         Arc::new((Mutex::new([0, 0]), Condvar::new()));
 
+    //slow start threshold
+    let mut cwnd = Arc::new(Mutex::new((4u32, u32::MAX, false)));
+    //let mut ssthresh:u32 = u32::MAX;
+    //let mut congestion_avoidance = false;
+
     //create mpsc channel for multiplexing  TODO: what is a good buffer size here?
     let (mux_tx, mut mux_rx) = futures::channel::mpsc::channel(32);
 
@@ -30,6 +35,7 @@ where
     //start frame switch task
     let connid_switch = connection_id.clone();
     let flowwnd_switch = flowwnd.clone();
+    let cwnd_switch = cwnd.clone();
     let last_ackids_switch = last_ackd_ids.clone();
     tokio::spawn(async move {
         //hash map for handler input channels
@@ -49,6 +55,7 @@ where
                         match frame {
                             Frame::Exit(_) => {
                                 //TODO: how to kill all the handler processes? -> likely best solution: just let them time out
+                                //handlers will terminate if input channels are closed //TODO: read
                                 //parent process will return if mpsc channel has no more senders
                                 return;
                             }
@@ -73,12 +80,44 @@ where
                                 *fwnd_mtx = f.window_size();
                             }
                             Frame::Ack(f) => {
-                                //update last ACKd packet ID
                                 let (lock, cvar) = &*last_ackids_switch;
-                                let mut ids = lock.lock().unwrap();
-                                ids[1] = ids[0];
-                                ids[0] = f.packet_id();
+                                let id0;
+                                let id1;
 
+                                {
+                                    //update last ACKd packet ID
+                                    let mut ids = lock.lock().unwrap();
+                                    ids[1] = ids[0];
+                                    ids[0] = f.packet_id();
+
+                                    id0 = ids[0];
+                                    id1 = ids[1];
+                                }
+
+                                //update congestion window
+                                let mut cwnd_mtx = cwnd_switch.lock().unwrap();
+                                if (*cwnd_mtx).2 {
+                                    if id0 > id1 {
+                                        (*cwnd_mtx).0 += (1024 * (id0 - id1)) / (*cwnd_mtx).0;
+                                    } else {
+                                        (*cwnd_mtx).0 /= 2;
+                                    }
+                                } else {
+                                    if id0 > id1 {
+                                        (*cwnd_mtx).0 += 1024 * (id0 - id1);
+                                    } else {
+                                        //TCP Reno
+                                        (*cwnd_mtx).0 /= 2;
+                                        (*cwnd_mtx).1 = (*cwnd_mtx).0;
+                                        (*cwnd_mtx).2 = true;
+                                    }
+                                }
+
+                                if (*cwnd_mtx).0 >= (*cwnd_mtx).1 {
+                                    (*cwnd_mtx).2 = true;
+                                }
+
+                                //wake up packet assembler waiting for ACK
                                 cvar.notify_one();
                             }
                             _ => {}
@@ -149,7 +188,6 @@ where
     //start frame muxing and packet assembly
     let mut packet_id = 0; //last used packet ID, increment before use
     let mut tx_packet_id = 0; // next packet id to be sent - 1 (for rewinding)
-    let mut cwnd = 2048u32;
     let mut last_ackd_pckt_id = 0;
     let total_bytes = 0u64;
     let last_ackd_bytes = 0u64;
@@ -166,6 +204,9 @@ where
     let mut ringbuf_pkts_head = 0; //last written element (increment before write)
     ringbuf_pkts.resize(ringbuf_size, Packet::new(0, 0));
 
+    let mut peeked_frame: Vec<Frame> = Vec::new();
+    let max_packet_size = 1024;
+
     loop {
         //get connection id
         let connid;
@@ -174,12 +215,16 @@ where
         }
         let mut packet = Packet::new(connid, packet_id + 1);
 
-        //check if we need to wait for ACK, rewind, or continue TODO: how to timeout?
+        //check if we need to wait for ACK, rewind, or continue TODO: timeout and re-slow start
         let flowwnd_sample;
+        let cwnd_sample;
         {
             flowwnd_sample = *flowwnd.lock().unwrap();
         }
-        if tx_packet_id - last_ackd_pckt_id >= min(flowwnd_sample, cwnd) {
+        {
+            cwnd_sample = *cwnd.lock().unwrap();
+        }
+        if tx_packet_id - last_ackd_pckt_id >= min(flowwnd_sample, cwnd_sample.0) {
             let mut illegal_ack = false;
 
             {
@@ -222,32 +267,55 @@ where
             //get some frames and add them to packet
             let mut size = 0;
             loop {
-                if size > 5 {
-                    break;
-                }
                 //TODO: how long to wait for more frames?
-                let frame = match mux_rx.next().await {
-                    None => return Ok(()),
-                    Some(f) => f,
+                let frame: Frame;
+                if peeked_frame.len() >= 1 {
+                    frame = peeked_frame.pop().unwrap();
+                } else {
+                    frame = match mux_rx.next().await {
+                        None => return Ok(()),
+                        Some(f) => f,
+                    };
+                }
+
+                //continue only if frame is data frame with payload size > 0 (not EOF)
+                let send_pckt: bool = match frame {
+                    Frame::Data(_) => frame.size() > 74,
+                    _ => true,
                 };
 
-                size += 1; //TODO how to measure actual size?
+                //check if max size surpassed -> save overhanging frame and break
+                if size + frame.size() > max_packet_size {
+                    peeked_frame.push(frame);
+                    break;
+                }
+
+                size += packet.size(); //TODO how to measure actual size?
                 packet.add_frame(frame);
+
+                //break for frames to be send immediately
+                if send_pckt {
+                    break;
+                }
             }
+
+            //insert packet size to packet size ring buffer
+            ringbuf_szs_head += (ringbuf_szs_head + 1) % ringbuf_size;
+            ringbuf_szs[ringbuf_szs_head] = packet.size() as u32;
 
             //insert packet to ring buffer
             ringbuf_pkts_head = (ringbuf_pkts_head + 1) % ringbuf_size;
             ringbuf_pkts[ringbuf_pkts_head] = packet.clone();
-
-            ringbuf_szs_head += (ringbuf_szs_head + 1) % ringbuf_size;
-            ringbuf_szs[ringbuf_szs_head] = 1; //TODO: insert actual byte size of packet
+            //TODO: delete packets out of window to save memory
         } else {
-            packet = ringbuf_pkts[(tx_packet_id + 1) as usize].clone();
+            //resend from ring buffer
+            packet = ringbuf_pkts[((tx_packet_id + 1) as usize) % ringbuf_size].clone();
         }
 
         //send packet trough sink
         sink.send(packet).await.expect("could not send packet");
 
+        //if rewinding, increment only tx_packet_id
         if packet_id == tx_packet_id {
             packet_id += 1;
         }
