@@ -96,25 +96,23 @@ where
 
                                 //update congestion window
                                 let mut cwnd_mtx = cwnd_switch.lock().unwrap();
-                                if (*cwnd_mtx).2 {
+                                if cwnd_mtx.2 {
                                     if id0 > id1 {
-                                        (*cwnd_mtx).0 += (1024 * (id0 - id1)) / (*cwnd_mtx).0;
+                                        cwnd_mtx.0 += (1024 * (id0 - id1)) / cwnd_mtx.0;
                                     } else {
-                                        (*cwnd_mtx).0 /= 2;
+                                        cwnd_mtx.0 /= 2;
                                     }
+                                } else if id0 > id1 {
+                                    cwnd_mtx.0 += 1024 * (id0 - id1);
                                 } else {
-                                    if id0 > id1 {
-                                        (*cwnd_mtx).0 += 1024 * (id0 - id1);
-                                    } else {
-                                        //TCP Reno
-                                        (*cwnd_mtx).0 /= 2;
-                                        (*cwnd_mtx).1 = (*cwnd_mtx).0;
-                                        (*cwnd_mtx).2 = true;
-                                    }
+                                    //TCP Reno
+                                    cwnd_mtx.0 /= 2;
+                                    cwnd_mtx.1 = cwnd_mtx.0;
+                                    cwnd_mtx.2 = true;
                                 }
 
-                                if (*cwnd_mtx).0 >= (*cwnd_mtx).1 {
-                                    (*cwnd_mtx).2 = true;
+                                if cwnd_mtx.0 >= cwnd_mtx.1 {
+                                    cwnd_mtx.2 = true;
                                 }
 
                                 //wake up packet assembler waiting for ACK
@@ -268,15 +266,14 @@ where
             let mut size = 0;
             loop {
                 //TODO: how long to wait for more frames?
-                let frame: Frame;
-                if peeked_frame.len() >= 1 {
-                    frame = peeked_frame.pop().unwrap();
+                let frame = if !peeked_frame.is_empty() {
+                    peeked_frame.pop().unwrap()
                 } else {
-                    frame = match mux_rx.next().await {
+                    match mux_rx.next().await {
                         None => return Ok(()),
                         Some(f) => f,
-                    };
-                }
+                    }
+                };
 
                 //continue only if frame is data frame with payload size > 0 (not EOF)
                 let send_pckt: bool = match frame {
