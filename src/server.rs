@@ -55,7 +55,7 @@ impl Server {
 
                 match packet.connection_id() {
                     0 => {
-                        let (mut ctx, crx) = mpsc::channel(8);
+                        let (mut ctx, crx) = mpsc::channel(16);
 
                         ctx.send(packet).await.unwrap();
 

@@ -1,5 +1,5 @@
 use crate::stream_handler::stream_handler;
-use crate::wire::{AckFrame, ErrorFrame, Frame, Packet, Size};
+use crate::wire::{AckFrame, ErrorFrame, FlowControlFrame, Frame, Packet, Size};
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use std::cmp::min;
 use std::collections::HashMap;
@@ -28,7 +28,14 @@ where
     let mut cwnd = Arc::new(Mutex::new((4u32, u32::MAX, false)));
 
     //create mpsc channel for multiplexing  TODO: what is a good buffer size here?
-    let (mut mux_tx, mut mux_rx) = futures::channel::mpsc::channel(32);
+    let (mut mux_tx, mut mux_rx) = futures::channel::mpsc::channel(16);
+
+    //send flow control frame specifying our receive buffer size
+    //TODO: this does not yet make sense, since our buffer capacity is 16 packets of arbitrary size.
+    mux_tx
+        .send(FlowControlFrame::new(8192).into())
+        .await
+        .unwrap();
 
     //TODO: maybe avoid 'static somehow?
 
