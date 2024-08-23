@@ -6,7 +6,9 @@ use futures::{SinkExt, StreamExt};
 use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tokio::net::UdpSocket;
+use tokio::time::timeout;
 
 pub struct Server {
     port: u16,
@@ -55,7 +57,7 @@ impl Server {
 
                 match packet.connection_id() {
                     0 => {
-                        let (mut ctx, crx) = mpsc::channel(16);
+                        let (mut ctx, crx) = mpsc::channel(128);
 
                         ctx.send(packet).await.unwrap();
 
@@ -81,15 +83,26 @@ impl Server {
                             }
                             Some(s) => {
                                 let cid = packet.connection_id();
-                                match s.send(packet).await {
-                                    Ok(_) => {}
-                                    Err(_) => {
-                                        eprintln!("Packet for dead connection handler discarded!");
-                                        input_map.remove(&cid);
-                                        {
-                                            let mut omap_mtx = output_map_switch.lock().unwrap();
-                                            omap_mtx.remove(&cid);
+                                match timeout(Duration::from_millis(1), s.send(packet)).await {
+                                    Ok(r) => match r {
+                                        Ok(_) => {}
+                                        Err(_) => {
+                                            eprintln!(
+                                                "Packet for dead connection handler discarded!"
+                                            );
+                                            input_map.remove(&cid);
+                                            {
+                                                let mut omap_mtx =
+                                                    output_map_switch.lock().unwrap();
+                                                omap_mtx.remove(&cid);
+                                            }
                                         }
+                                    },
+                                    Err(_) => {
+                                        //timeout: channel full -> drop packet
+                                        eprintln!(
+                                            "connection handler input channel full, packet dropped"
+                                        );
                                     }
                                 }
                             }
