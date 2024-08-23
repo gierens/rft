@@ -21,8 +21,7 @@ impl ClientConfig {
         host: Ipv4Addr,
         port: u16,
         files: Vec<PathBuf>,
-        #[allow(dead_code)]
-        loss_sim: Option<LossSimulation>,
+        #[allow(dead_code)] loss_sim: Option<LossSimulation>,
     ) -> Self {
         Self {
             host,
