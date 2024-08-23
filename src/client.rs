@@ -63,13 +63,14 @@ impl Client {
         Ok(self)
     }
 
+    // TODO: send read command
+    // TODO: check buffer sizes
+    // TODO: handle congestion control
     #[tokio::main]
     pub async fn start(&mut self) -> Result<(), anyhow::Error> {
-        // idea: https://excalidraw.com/#json=SmceuVrZR7teBVxFnKskC,6anX_11ILOMBKLWYSJQrng
+        // idea: https://excalidraw.com/#json=tbYyeXwmjsAWzIbHJqoa2,lxc2VI0v4LzKGLqVhFwotw
         // send frames on one stream per file
         // one stream handler per file
-        // send server read cmd first
-        // we need one receiver in total, and one sender per file/command, create via cloning
 
         let conn = self.conn.as_ref().context("Connection not established")?;
         let mut packet_id = 1; // client counter for the packet_id
