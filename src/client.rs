@@ -12,6 +12,7 @@ pub struct ClientConfig {
     pub host: Ipv4Addr,
     pub port: u16,
     pub files: Vec<PathBuf>,
+    #[allow(dead_code)]
     pub loss_sim: Option<LossSimulation>,
 }
 
@@ -20,6 +21,7 @@ impl ClientConfig {
         host: Ipv4Addr,
         port: u16,
         files: Vec<PathBuf>,
+        #[allow(dead_code)]
         loss_sim: Option<LossSimulation>,
     ) -> Self {
         Self {
