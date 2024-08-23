@@ -46,7 +46,7 @@ impl Server {
         //start packet switching task
         let mut output_map_switch = output_map.clone();
         tokio::spawn(async move {
-            let mut buf = [0; 1024];
+            let mut buf = [0; 2048];
             let mut cid_ctr = 1u32;
             loop {
                 let (size, client_addr) = udp_rx
