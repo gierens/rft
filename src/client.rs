@@ -63,7 +63,6 @@ impl Client {
         Ok(self)
     }
 
-    // TODO: send read command
     // TODO: check buffer sizes
     // TODO: handle congestion control
     #[tokio::main]
@@ -77,7 +76,8 @@ impl Client {
         let mut last_recv_packet_id;
         let mut recv_buf: [u8; 1024] = [0; 1024];
 
-        // Start connection establishment and ConnID // TODO finish this
+        // Start connection establishment and ConnID
+        // TODO: handle connection establishment with CID change Frame
         let packet = Packet::new(0, packet_id);
         let bytes = packet.assemble();
         conn.send(&bytes).context("Failed to send packet")?;
@@ -131,6 +131,21 @@ impl Client {
                 packet_id += 1;
             }
         });
+
+        // Send WriteFrame's to ourselves to create the requested files
+        for (i, path) in self.config.files.iter().enumerate() {
+            let write_frame = WriteFrame::new((i + 1) as u16, 0, 0, path);
+            self.sinks[i].send(Frame::Write(write_frame)).await?;
+        }
+
+        // Send the ReadFrame's to the server to read the entire files
+        for (i, path) in self.config.files.iter().enumerate() {
+            let read_frame = ReadFrame::new((i + 1) as u16, 0, 0, 0, 0, path);
+            let mut packet = Packet::new(conn_id, packet_id);
+            packet.add_frame(Frame::Read(read_frame));
+            let bytes = packet.assemble();
+            conn.send(&bytes).context("Failed to send packet")?;
+        }
 
         // Receive the Packets from the server and switch the contained Frames to the corresponding sinks
         while transmission_complete.iter().all(|&x| x) {
