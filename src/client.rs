@@ -50,7 +50,7 @@ impl Client {
 
     /// Connect the client to the specified server
     pub fn connect(&mut self) -> Result<&Client, anyhow::Error> {
-        let socket = match UdpSocket::bind("0.0.0.0") {
+        let socket = match UdpSocket::bind("0.0.0.0:0") {
             Ok(socket) => {
                 match socket.connect(SocketAddrV4::new(self.config.host, self.config.port)) {
                     Ok(_) => socket,
@@ -60,6 +60,7 @@ impl Client {
             Err(e) => return Err(anyhow!("Failed to bind socket: {}", e)),
         };
         self.conn = Some(socket);
+        println!("DEBUG: Connected to server at {}:{}", self.config.host, self.config.port);
         Ok(self)
     }
 
