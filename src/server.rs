@@ -25,6 +25,8 @@ impl Server {
     }
 
     pub async fn run(&self) -> anyhow::Result<()> {
+        self::Server::print_banner();
+        println!("Server running on port {}", self.port);
         //HashMap for client IPs
         //let mut output_map: HashMap<u32, SocketAddr> = HashMap::new();
         let output_map: Arc<Mutex<HashMap<u32, SocketAddr>>> = Arc::new(Mutex::new(HashMap::new()));
@@ -128,5 +130,19 @@ impl Server {
                 .await
                 .expect("UDP Socket tx error");
         }
+    }
+
+    fn print_banner() {
+        let banner = "                                      
+ ███████████   ███████████ ███████████
+░░███░░░░░███ ░░███░░░░░░█░█░░░███░░░█
+ ░███    ░███  ░███   █ ░ ░   ░███  ░ 
+ ░██████████   ░███████       ░███    
+ ░███░░░░░███  ░███░░░█       ░███    
+ ░███    ░███  ░███  ░        ░███    
+ █████   █████ █████          █████   
+░░░░░   ░░░░░ ░░░░░          ░░░░░    
+                                      ";
+        println!("{}", banner);
     }
 }
