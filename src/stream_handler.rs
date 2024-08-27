@@ -120,6 +120,18 @@ where
                             break;
                         };
 
+                        //check if we are orphaned
+                        match timeout(Duration::from_micros(1), stream.next()).await {
+                            Ok(_) => {
+                                //stream closed, return
+                                debug!("Read handler returned");
+                                return Ok(());
+                            }
+                            Err(_) => {
+                                //ok, stream not closed
+                            }
+                        }
+
                         //read bytes from file into buf
                         let mut data_size = reader.read(&mut read_buf).expect("file read error");
 
@@ -247,6 +259,7 @@ where
                             last_offset += f.length();
                         } else {
                             //illegal frame or channel closed: abort transmission and leave file so client can continue later
+                            debug!("Write handler returned");
                             sink.send(
                                 ErrorFrame::new(cmd.stream_id(), "Illegal Frame Received").into(),
                             )

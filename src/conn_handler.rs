@@ -61,6 +61,11 @@ where
                 last_recvd_id = packet.packet_id();
             } else if packet.packet_id() != last_recvd_id + 1 {
                 //send double ACK
+                debug!(
+                    "Double ACK sent for {} after receiving {}",
+                    packet.packet_id(),
+                    last_recvd_id
+                );
                 mux_tx
                     .send(AckFrame::new(last_recvd_id).into())
                     .await
