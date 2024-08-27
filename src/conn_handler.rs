@@ -46,6 +46,7 @@ where
     tokio::spawn(async move {
         //hash map for handler input channels
         let mut handler_map: HashMap<u16, futures::channel::mpsc::Sender<Frame>> = HashMap::new();
+        let mut last_recvd_id = 0;
 
         loop {
             let packet = match stream.next().await {
@@ -54,6 +55,18 @@ where
                 }
                 Some(p) => p,
             };
+
+            if last_recvd_id == 0 {
+                last_recvd_id = packet.packet_id();
+            } else if packet.packet_id() != last_recvd_id + 1 {
+                //send double ACK
+                mux_tx
+                    .send(AckFrame::new(last_recvd_id).into())
+                    .await
+                    .expect("could not send ACK");
+            } else {
+                last_recvd_id += 1;
+            }
 
             //send ACK TODO: cumulative ACKs
             mux_tx
