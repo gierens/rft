@@ -73,13 +73,13 @@ where
                 continue;
             } else {
                 last_recvd_id += 1;
-
-                //send ACK TODO: cumulative ACKs
-                mux_tx
-                    .send(AckFrame::new(packet.packet_id()).into())
-                    .await
-                    .expect("could not send ACK");
             }
+
+            //send ACK TODO: cumulative ACKs
+            mux_tx
+                .send(AckFrame::new(packet.packet_id()).into())
+                .await
+                .expect("could not send ACK");
 
             for frame in packet.frames {
                 match frame.stream_id() {
