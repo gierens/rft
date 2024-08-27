@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::time::timeout;
+use log::{info, debug, warn, error};
 
 pub struct Server {
     port: u16,
@@ -26,7 +27,7 @@ impl Server {
 
     pub async fn run(&self) -> anyhow::Result<()> {
         self::Server::print_banner();
-        println!("Server running on port {}", self.port);
+        info!("Server running on port {}", self.port);
         //HashMap for client IPs
         //let mut output_map: HashMap<u32, SocketAddr> = HashMap::new();
         let output_map: Arc<Mutex<HashMap<u32, SocketAddr>>> = Arc::new(Mutex::new(HashMap::new()));
@@ -57,6 +58,8 @@ impl Server {
                     .expect("UDP Socket rx error");
                 let packet = Packet::parse_buf(&buf[..size]).expect("Failed to parse packet");
 
+                debug!("Received packet: {:?}", packet.clone());
+
                 match packet.connection_id() {
                     0 => {
                         let (mut ctx, crx) = mpsc::channel(128);
@@ -81,7 +84,7 @@ impl Server {
                     _ => {
                         match input_map.get_mut(&packet.packet_id()) {
                             None => {
-                                //unknown connection, ignore
+                                warn!("Discard Packet for unknown connection with packet_id {}", packet.packet_id());
                             }
                             Some(s) => {
                                 let cid = packet.connection_id();
@@ -89,7 +92,7 @@ impl Server {
                                     Ok(r) => match r {
                                         Ok(_) => {}
                                         Err(_) => {
-                                            eprintln!(
+                                            error!(
                                                 "Packet for dead connection handler discarded!"
                                             );
                                             input_map.remove(&cid);
@@ -102,7 +105,7 @@ impl Server {
                                     },
                                     Err(_) => {
                                         //timeout: channel full -> drop packet
-                                        eprintln!(
+                                        error!(
                                             "connection handler input channel full, packet dropped"
                                         );
                                     }

@@ -7,6 +7,7 @@ use std::fmt::Debug;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 use tokio::time::timeout;
+use log::{info, debug, error};
 
 #[allow(dead_code)]
 #[allow(unused_mut)]
@@ -84,10 +85,12 @@ where
                                 //TODO: delete closed connections from server hashmaps
                                 //handlers will terminate if input channels are closed //TODO: read
                                 //parent process will return if mpsc channel has no more senders
+                                info!("Received ExitFrame from client, terminating connection");
                                 return;
                             }
                             Frame::ConnIdChange(f) => {
                                 //TODO
+                                error!("ConnID change not yet implemented");
                             }
                             Frame::FlowControl(f) => {
                                 //update flow window size
@@ -164,7 +167,7 @@ where
                                     Err(e) => {
                                         //check if reason for error was handler being dead
                                         if !e.is_disconnected() {
-                                            eprintln!("Handler input error: {}", e);
+                                            error!("Handler input error: {}", e);
                                         }
 
                                         //handler dead, start new one
@@ -298,6 +301,7 @@ where
                         Some(f) => f,
                     },
                     Err(_) => {
+                        debug!("Timeout waiting for next frame, sending packet");
                         //send packet if no next frame arrives in time
                         break;
                     }
@@ -327,6 +331,7 @@ where
         total_bytes += packet.size() as u64;
 
         //send packet trough sink
+        debug!("Sending packet {:?} with ID {} to sink", packet.clone(), packet.packet_id());
         sink.send(packet).await.expect("could not send packet");
 
         //if rewinding, increment only tx_packet_id

@@ -13,6 +13,8 @@ use ring::digest::{Digest, SHA256};
 use std::fs::{File, OpenOptions};
 use std::time::Duration;
 
+use log::{debug, error, info, warn};
+
 //from rust cookbook
 #[allow(dead_code)]
 fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
@@ -43,6 +45,7 @@ where
         Some(frame) => {
             match frame {
                 Frame::Read(cmd) => {
+                    info!("Received Read command");
                     //parse path
                     let path: String = match cmd.path().to_str() {
                         Some(s) => s.into(),
@@ -56,8 +59,12 @@ where
 
                     //open file
                     let file: File = match OpenOptions::new().read(true).open(path.clone()) {
-                        Ok(f) => f,
+                        Ok(f) => {
+                            debug!("Opened file: {}", path);
+                            f
+                        },
                         Err(e) => {
+                            warn!("Could not open file: {}", e);
                             sink.send(
                                 ErrorFrame::new(cmd.stream_id(), e.to_string().as_str()).into(),
                             )
@@ -73,6 +80,7 @@ where
 
                     //check if trying to read past EOF
                     if cmd.offset() + cmd.length() > file_size {
+                        warn!("Trying to read past EOF");
                         sink.send(
                             ErrorFrame::new(cmd.stream_id(), "You're trying to read past EOF")
                                 .into(),
@@ -147,6 +155,7 @@ where
                 }
 
                 Frame::Write(cmd) => {
+                    info!("Received Write command");
                     //parse path
                     let path: String = match cmd.path().to_str() {
                         Some(s) => s.into(),
@@ -250,9 +259,11 @@ where
                 }
 
                 Frame::Checksum(cmd) => {
+                    info!("Received Checksum command");
                     match cmd.path().to_str() {
                         Some(p) => match File::open(p) {
                             Ok(f) => {
+                                debug!("Opened file: {}", p);
                                 let reader = BufReader::new(f);
                                 let digest = sha256_digest(reader)?;
                                 sink.send(
@@ -266,6 +277,7 @@ where
                                 .expect("stream_handler: could not send response");
                             }
                             Err(e) => {
+                                warn!("Could not open file: {}", e);
                                 sink.send(
                                     ErrorFrame::new(cmd.stream_id(), e.to_string().as_str()).into(),
                                 )
@@ -286,6 +298,8 @@ where
                 }
 
                 Frame::Stat(cmd) => {
+                    info!("Received Stat command");
+                    error!("Stat command not implemented");
                     sink.send(ErrorFrame::new(cmd.stream_id(), "Not implemented").into())
                         .await
                         .expect("stream_handler: could not send response");
@@ -293,13 +307,18 @@ where
                 }
 
                 Frame::List(cmd) => {
+                    info!("Received List command");
+                    error!("List command not implemented");
                     sink.send(ErrorFrame::new(cmd.stream_id(), "Not implemented").into())
                         .await
                         .expect("stream_handler: could not send response");
                     Ok(())
                 }
 
-                _ => Err(anyhow!("Illegal initial frame reached stream_handler")),
+                _ => {
+                    error!("Illegal initial frame reached stream_handler");
+                    Err(anyhow!("Illegal initial frame reached stream_handler"))
+                },
             }
         }
     }
