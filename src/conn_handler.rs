@@ -26,7 +26,7 @@ where
         Arc::new((Mutex::new([0, 0]), Condvar::new()));
 
     //slow start threshold
-    let mut cwnd = Arc::new(Mutex::new((4u32, u32::MAX, false)));
+    let mut cwnd = Arc::new(Mutex::new((4096u32, u32::MAX, false)));
 
     //create mpsc channel for multiplexing  TODO: what is a good buffer size here?
     let (mut mux_tx, mut mux_rx) = futures::channel::mpsc::channel(16);
@@ -255,7 +255,9 @@ where
                         );
                         break;
                     }
-                    if ids[0] == last_ackd_pckt_id && ids[0] > ids[1] {
+                    if (ids[0] == last_ackd_pckt_id && ids[0] > ids[1])
+                        || (ids[0] == 0 && ids[1] == 0)
+                    {
                         //no new ACK received, wait and continue
                         debug!("Waiting for ACK");
                         ids = cvar.wait(ids).unwrap();
