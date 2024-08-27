@@ -62,6 +62,7 @@ impl Server {
 
                 match packet.connection_id() {
                     0 => {
+                        debug!("New connection, ID: {}", cid_ctr);
                         let (mut ctx, crx) = mpsc::channel(128);
 
                         ctx.send(packet).await.unwrap();
@@ -82,7 +83,7 @@ impl Server {
                         cid_ctr += 1;
                     }
                     _ => {
-                        match input_map.get_mut(&packet.packet_id()) {
+                        match input_map.get_mut(&packet.connection_id()) {
                             None => {
                                 warn!(
                                     "Discard Packet for unknown connection with packet_id {}",
