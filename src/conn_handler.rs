@@ -304,6 +304,8 @@ where
                 }
             };
 
+            packet.add_frame(frame);
+
             loop {
                 //TODO: how long to wait for more frames?
                 //wait a short time for further frames
