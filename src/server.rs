@@ -126,7 +126,7 @@ impl Server {
             {
                 let omap_mtx = output_map.lock().unwrap();
                 dest = *omap_mtx
-                    .get(&packet.packet_id())
+                    .get(&packet.connection_id())
                     .expect("connID not in output_map at tx");
             }
             let packet_bytes = packet.assemble();
