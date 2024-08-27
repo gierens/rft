@@ -103,7 +103,7 @@ fn main() {
             }
             let mut client = Client::new(config);
             match client.connect() {
-                Ok(_) => client.start(),
+                Ok(_) => client.start().await,
                 Err(e) => Err(e),
             }
         }

@@ -66,7 +66,6 @@ impl Client {
 
     // TODO: check buffer sizes
     // TODO: handle congestion control
-    #[tokio::main]
     pub async fn start(&mut self) -> Result<(), anyhow::Error> {
         // idea: https://excalidraw.com/#json=tbYyeXwmjsAWzIbHJqoa2,lxc2VI0v4LzKGLqVhFwotw
         // send frames on one stream per file
@@ -82,6 +81,7 @@ impl Client {
         let packet = Packet::new(0, packet_id);
         let bytes = packet.assemble();
         conn.send(&bytes).context("Failed to send packet")?;
+        packet_id += 1;
 
         let size = conn.recv(&mut recv_buf)?;
         let packet = Packet::parse_buf(&recv_buf[..size]).context("Failed to parse packet")?;
@@ -100,6 +100,7 @@ impl Client {
 
         let (assembler_sink, mut assembler_rx): (Sender<Frame>, Receiver<Frame>) = channel(3);
 
+        println!("DEBUG: Starting {} stream handlers", self.config.files.len());
         // Setup up channels for stream handlers and assembler
         for _ in &self.config.files {
             let (tx, rx): (Sender<Frame>, Receiver<Frame>) = channel(3);
@@ -133,12 +134,15 @@ impl Client {
             }
         });
 
+        println!("DEBUG: Sending {} WriteFrames to create files", self.config.files.len());
         // Send WriteFrame's to ourselves to create the requested files
         for (i, path) in self.config.files.iter().enumerate() {
             let write_frame = WriteFrame::new((i + 1) as u16, 0, 0, path);
             self.sinks[i].send(Frame::Write(write_frame)).await?;
+            println!("DEBUG: Sent WriteFrame for file: {:?} to sink {}", path, i);
         }
 
+        println!("DEBUG: Sending {} ReadFrames to server to read files", self.config.files.len());
         // Send the ReadFrame's to the server to read the entire files
         for (i, path) in self.config.files.iter().enumerate() {
             let read_frame = ReadFrame::new((i + 1) as u16, 0, 0, 0, 0, path);
@@ -146,6 +150,8 @@ impl Client {
             packet.add_frame(Frame::Read(read_frame));
             let bytes = packet.assemble();
             conn.send(&bytes).context("Failed to send packet")?;
+            println!("DEBUG: Sent ReadFrame for file: {:?} to server with packet_id {}", path, packet_id);
+            packet_id += 1;
         }
 
         // Receive the Packets from the server and switch the contained Frames to the corresponding sinks
@@ -192,15 +198,17 @@ impl Client {
 
                 // Send frame to corresponding sink
                 self.sinks[n - 1].send(frame).await?;
+                println!("DEBUG: Sent frame to sink {}", n - 1);
             }
         }
 
+        println!("DEBUG: Transmission complete. Closing connection...");
         // Send Exit Frame
         let mut packet = Packet::new(conn_id, packet_id);
         packet.add_frame(Frame::Exit(ExitFrame::new()));
         let bytes = packet.assemble();
         conn.send(&bytes).context("Failed to send packet")?;
-
-        return Ok(());
+        println!("DEBUG: Sent ExitFrame to server with packet_id {}", packet_id);
+        Ok(())
     }
 }
