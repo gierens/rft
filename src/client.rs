@@ -60,7 +60,10 @@ impl Client {
             Err(e) => return Err(anyhow!("Failed to bind socket: {}", e)),
         };
         self.conn = Some(socket);
-        println!("DEBUG: Connected to server at {}:{}", self.config.host, self.config.port);
+        println!(
+            "DEBUG: Connected to server at {}:{}",
+            self.config.host, self.config.port
+        );
         Ok(self)
     }
 
@@ -100,7 +103,10 @@ impl Client {
 
         let (assembler_sink, mut assembler_rx): (Sender<Frame>, Receiver<Frame>) = channel(3);
 
-        println!("DEBUG: Starting {} stream handlers", self.config.files.len());
+        println!(
+            "DEBUG: Starting {} stream handlers",
+            self.config.files.len()
+        );
         // Setup up channels for stream handlers and assembler
         for _ in &self.config.files {
             let (tx, rx): (Sender<Frame>, Receiver<Frame>) = channel(3);
@@ -134,7 +140,10 @@ impl Client {
             }
         });
 
-        println!("DEBUG: Sending {} WriteFrames to create files", self.config.files.len());
+        println!(
+            "DEBUG: Sending {} WriteFrames to create files",
+            self.config.files.len()
+        );
         // Send WriteFrame's to ourselves to create the requested files
         for (i, path) in self.config.files.iter().enumerate() {
             let write_frame = WriteFrame::new((i + 1) as u16, 0, 0, path);
@@ -142,7 +151,10 @@ impl Client {
             println!("DEBUG: Sent WriteFrame for file: {:?} to sink {}", path, i);
         }
 
-        println!("DEBUG: Sending {} ReadFrames to server to read files", self.config.files.len());
+        println!(
+            "DEBUG: Sending {} ReadFrames to server to read files",
+            self.config.files.len()
+        );
         // Send the ReadFrame's to the server to read the entire files
         for (i, path) in self.config.files.iter().enumerate() {
             let read_frame = ReadFrame::new((i + 1) as u16, 0, 0, 0, 0, path);
@@ -150,7 +162,10 @@ impl Client {
             packet.add_frame(Frame::Read(read_frame));
             let bytes = packet.assemble();
             conn.send(&bytes).context("Failed to send packet")?;
-            println!("DEBUG: Sent ReadFrame for file: {:?} to server with packet_id {}", path, packet_id);
+            println!(
+                "DEBUG: Sent ReadFrame for file: {:?} to server with packet_id {}",
+                path, packet_id
+            );
             packet_id += 1;
         }
 
@@ -208,7 +223,10 @@ impl Client {
         packet.add_frame(Frame::Exit(ExitFrame::new()));
         let bytes = packet.assemble();
         conn.send(&bytes).context("Failed to send packet")?;
-        println!("DEBUG: Sent ExitFrame to server with packet_id {}", packet_id);
+        println!(
+            "DEBUG: Sent ExitFrame to server with packet_id {}",
+            packet_id
+        );
         Ok(())
     }
 }
