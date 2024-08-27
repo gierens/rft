@@ -1,13 +1,13 @@
 use crate::stream_handler::stream_handler;
 use crate::wire::{AckFrame, ErrorFrame, FlowControlFrame, Frame, Packet, Size};
 use futures::{Sink, SinkExt, Stream, StreamExt};
+use log::{debug, error, info};
 use std::cmp::min;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 use tokio::time::timeout;
-use log::{info, debug, error};
 
 #[allow(dead_code)]
 #[allow(unused_mut)]
@@ -331,7 +331,11 @@ where
         total_bytes += packet.size() as u64;
 
         //send packet trough sink
-        debug!("Sending packet {:?} with ID {} to sink", packet.clone(), packet.packet_id());
+        debug!(
+            "Sending packet {:?} with ID {} to sink",
+            packet.clone(),
+            packet.packet_id()
+        );
         sink.send(packet).await.expect("could not send packet");
 
         //if rewinding, increment only tx_packet_id

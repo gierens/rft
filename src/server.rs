@@ -3,13 +3,13 @@ use crate::loss_simulation::LossSimulation;
 use crate::wire::{Assemble, Packet};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
+use log::{debug, error, info, warn};
 use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::time::timeout;
-use log::{info, debug, warn, error};
 
 pub struct Server {
     port: u16,
@@ -84,7 +84,10 @@ impl Server {
                     _ => {
                         match input_map.get_mut(&packet.packet_id()) {
                             None => {
-                                warn!("Discard Packet for unknown connection with packet_id {}", packet.packet_id());
+                                warn!(
+                                    "Discard Packet for unknown connection with packet_id {}",
+                                    packet.packet_id()
+                                );
                             }
                             Some(s) => {
                                 let cid = packet.connection_id();
@@ -92,9 +95,7 @@ impl Server {
                                     Ok(r) => match r {
                                         Ok(_) => {}
                                         Err(_) => {
-                                            error!(
-                                                "Packet for dead connection handler discarded!"
-                                            );
+                                            error!("Packet for dead connection handler discarded!");
                                             input_map.remove(&cid);
                                             {
                                                 let mut omap_mtx =

@@ -62,7 +62,7 @@ where
                         Ok(f) => {
                             debug!("Opened file: {}", path);
                             f
-                        },
+                        }
                         Err(e) => {
                             warn!("Could not open file: {}", e);
                             sink.send(
@@ -318,7 +318,7 @@ where
                 _ => {
                     error!("Illegal initial frame reached stream_handler");
                     Err(anyhow!("Illegal initial frame reached stream_handler"))
-                },
+                }
             }
         }
     }
