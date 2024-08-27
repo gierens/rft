@@ -235,6 +235,8 @@ where
         if total_bytes - last_ackd_bytes >= min(flowwnd_sample, cwnd_sample.0) as u64 {
             let mut illegal_ack = false;
 
+            debug!("ACK required");
+
             {
                 let (lock, cvar) = &*last_ackd_ids;
                 let mut ids = lock.lock().unwrap();
@@ -246,10 +248,16 @@ where
                             last_ackd_bytes += ringbuf_szs[(i as usize) % ringbuf_size] as u64;
                         }
                         last_ackd_pckt_id = ids[0];
+
+                        debug!(
+                            "ACK for ID {} received, bytes ACKd to {}",
+                            ids[0], last_ackd_bytes
+                        );
                         break;
                     }
                     if ids[0] == last_ackd_pckt_id && ids[0] > ids[1] {
                         //no new ACK received, wait and continue
+                        debug!("Waiting for ACK");
                         ids = cvar.wait(ids).unwrap();
                         continue;
                     }
@@ -257,6 +265,10 @@ where
                         //double ACK received, rewind
                         tx_packet_id = last_ackd_pckt_id;
                         total_bytes = last_ackd_bytes;
+                        debug!(
+                            "Double ACK for ID {}, rewinding to byte {}",
+                            last_ackd_pckt_id, last_ackd_bytes
+                        );
                         break;
                     }
 
@@ -267,6 +279,7 @@ where
             }
 
             if illegal_ack {
+                debug!("Illegal ACK encountered");
                 packet.add_frame(
                     ErrorFrame::new(0, "ACK irregularities observed, terminating connection")
                         .into(),
@@ -282,6 +295,7 @@ where
 
             //wait unboundedly long for fist frame
             let frame = if !peeked_frame.is_empty() {
+                debug!("Poped peeked frame");
                 peeked_frame.pop().unwrap()
             } else {
                 match mux_rx.next().await {
@@ -310,6 +324,7 @@ where
                 //check if max size surpassed -> save overhanging frame and break
                 if size + frame.size() > max_packet_size {
                     peeked_frame.push(frame);
+                    debug!("Max packet size reached, sending packet");
                     break;
                 }
 
@@ -325,6 +340,7 @@ where
             //TODO: delete packets out of window to save memory
         } else {
             //resend from ring buffer
+            debug!("retrieving packet {} from buffer", tx_packet_id + 1);
             packet = ringbuf_pkts[((tx_packet_id + 1) as usize) % ringbuf_size].clone();
         }
 
