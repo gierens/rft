@@ -4,6 +4,7 @@ use std::process::exit;
 use tokio::runtime;
 
 use clap::Parser;
+use log::{error, info};
 
 mod client;
 mod conn_handler;
@@ -67,6 +68,7 @@ struct Cli {
 // - consider splitting wire module into multiple modules
 
 fn main() {
+    env_logger::init();
     let args = Cli::parse();
 
     let loss_sim = LossSimulation::from_options(args.p, args.q);
@@ -81,15 +83,17 @@ fn main() {
     let runtime = match runtime.build() {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("Failed to build async runtime: {}", e);
+            error!("Failed to build async runtime: {}", e);
             exit(1)
         }
     };
 
     let result = runtime.block_on(async move {
         if args.server {
+            info!("Running in server mode");
             Server::new(args.port, loss_sim).run().await
         } else {
+            info!("Running in client mode");
             let config = client::ClientConfig::new(
                 args.host
                     .ok_or_else(|| anyhow::anyhow!("Host is required for client mode"))?,
@@ -110,7 +114,8 @@ fn main() {
     });
 
     if let Err(e) = result {
-        eprintln!("Error: {}", e);
+        error!("Error: {}", e);
         std::process::exit(1);
     }
+    info!("Application completed successfully");
 }
