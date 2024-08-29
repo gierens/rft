@@ -200,6 +200,8 @@ impl Client {
                 // Check if it is the last data frame
                 if let Frame::Data(data_frame) = &frame {
                     if data_frame.length() == 0 {
+                        info!("Received last data for stream {}: {:?}", n - 1, data_frame);
+                        info!("Transmission complete for stream {}", n - 1);
                         transmission_complete[n - 1] = true;
                     }
                 }

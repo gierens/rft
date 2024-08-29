@@ -324,7 +324,10 @@ where
                         Some(f) => f,
                     },
                     Err(_) => {
-                        debug!("Timeout waiting for next frame, sending packet");
+                        debug!(
+                            "Timeout waiting for next frame, sending packet: {:?}",
+                            packet
+                        );
                         //send packet if no next frame arrives in time
                         break;
                     }
@@ -333,7 +336,7 @@ where
                 //check if max size surpassed -> save overhanging frame and break
                 if size + frame.size() > max_packet_size {
                     peeked_frame.push(frame);
-                    debug!("Max packet size reached, sending packet");
+                    debug!("Max packet size reached, sending packet: {:?}", packet);
                     break;
                 }
 
