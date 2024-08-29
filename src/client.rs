@@ -163,7 +163,7 @@ impl Client {
         }
 
         // Receive the Packets from the server and switch the contained Frames to the corresponding sinks
-        while transmission_complete.iter().all(|&x| x) {
+        while !transmission_complete.iter().all(|&x| x) {
             let size = conn.recv(&mut recv_buf)?;
             let packet = Packet::parse_buf(&recv_buf[..size])?;
             let _recv_packet_id = packet.header().packet_id;
