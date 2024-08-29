@@ -1,3 +1,4 @@
 /target
 /specification/*.xml
 /specification/*.txt
+/data-dir/*
