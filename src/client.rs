@@ -151,16 +151,7 @@ impl Client {
         debug! {"Sending {} ReadFrames to server to read files", self.config.files.len()};
         // Send the ReadFrame's to the server to read the entire files
         for (i, path) in self.config.files.iter().enumerate() {
-            let read_frame = ReadFrame::new((i + 1) as u16, 0, 0, 0, 0, path);
-            let mut packet = Packet::new(conn_id, packet_id);
-            packet.add_frame(Frame::Read(read_frame));
-            let bytes = packet.assemble();
-            conn.send(&bytes).context("Failed to send packet")?;
-            debug!(
-                "Sent ReadFrame for file: {:?} to server with packet_id {}",
-                path, packet_id
-            );
-            packet_id += 1;
+            assembler_sink.send(Frame::Read(ReadFrame::new((i + 1) as u16, 0, 0, 0, 0, path))).await?;
         }
 
         // Receive the Packets from the server and switch the contained Frames to the corresponding sinks
