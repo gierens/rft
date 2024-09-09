@@ -7,6 +7,7 @@ use futures::{SinkExt, StreamExt};
 use log::{debug, error, info, warn};
 use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
 use std::path::PathBuf;
+use tokio::task::spawn_blocking;
 
 #[derive(Debug)]
 pub struct ClientConfig {
@@ -216,8 +217,8 @@ impl Client {
         // Send Exit Frame
         let mut packet = Packet::new(conn_id, packet_id);
         packet.add_frame(Frame::Exit(ExitFrame::new()));
-        let bytes = packet.assemble();
-        conn.send(&bytes).context("Failed to send packet")?;
+        let bytes = spawn_blocking(move || { packet.assemble() }).await?;
+        conn.send(&bytes).await.context("Failed to send packet")?;
         debug!("Sent ExitFrame to server with packet_id {}", packet_id);
         Ok(())
     }
