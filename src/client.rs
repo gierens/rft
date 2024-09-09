@@ -131,7 +131,9 @@ impl Client {
                     }
                 }
 
-                let buf = packet.assemble();
+                let buf = spawn_blocking(move || {
+                    packet.assemble()
+                }).await.unwrap();
                 conn_clone
                     .send(&buf)
                     .await
