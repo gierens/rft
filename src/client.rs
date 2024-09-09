@@ -170,6 +170,7 @@ impl Client {
                 );
             }
             last_recv_packet_id = _recv_packet_id;
+            assembler_sink.send(Frame::Ack(AckFrame::new(last_recv_packet_id))).await?;
 
             let frames = packet.frames;
             for frame in frames {
