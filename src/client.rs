@@ -5,8 +5,13 @@ use anyhow::{anyhow, Context};
 use futures::channel::mpsc::{channel, Receiver, Sender};
 use futures::{SinkExt, StreamExt};
 use log::{debug, error, info, warn};
-use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
+use tokio::time::sleep;
+use std::net::{Ipv4Addr, SocketAddrV4};
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::net::UdpSocket;
 use std::path::PathBuf;
+use bytes::BytesMut;
 use tokio::task::spawn_blocking;
 
 #[derive(Debug)]
@@ -37,7 +42,6 @@ impl ClientConfig {
 #[derive(Debug)]
 pub struct Client {
     config: ClientConfig,
-    conn: Option<UdpSocket>,
     sinks: Vec<Sender<Frame>>,
 }
 
@@ -45,35 +49,30 @@ impl Client {
     pub fn new(config: ClientConfig) -> Self {
         Client {
             config,
-            conn: None,
             sinks: Vec::new(),
         }
     }
 
-    /// Connect the client to the specified server
-    pub fn connect(&mut self) -> Result<&Client, anyhow::Error> {
-        let socket = match UdpSocket::bind("0.0.0.0:0") {
+    pub async fn start(&mut self) -> Result<(), anyhow::Error> {
+        // Connect the client to the specified server
+        let socket = match UdpSocket::bind("0.0.0.0:0").await {
             Ok(socket) => {
-                match socket.connect(SocketAddrV4::new(self.config.host, self.config.port)) {
+                match socket.connect(SocketAddrV4::new(self.config.host, self.config.port)).await {
                     Ok(_) => socket,
                     Err(e) => return Err(anyhow!("Failed to connect to server: {}", e)),
                 }
             }
             Err(e) => return Err(anyhow!("Failed to bind socket: {}", e)),
         };
-        self.conn = Some(socket);
+        let conn = Arc::new(socket);
         info! {"Connected to server at {}:{}", self.config.host, self.config.port};
-        Ok(self)
-    }
 
-    // TODO: check buffer sizes
-    // TODO: handle congestion control
-    pub async fn start(&mut self) -> Result<(), anyhow::Error> {
+        // TODO: check buffer sizes
+        // TODO: handle congestion control
         // idea: https://excalidraw.com/#json=tbYyeXwmjsAWzIbHJqoa2,lxc2VI0v4LzKGLqVhFwotw
         // send frames on one stream per file
         // one stream handler per file
 
-        let conn = self.conn.as_ref().context("Connection not established")?;
         let mut packet_id = 1; // client counter for the packet_id
         let mut last_recv_packet_id;
         let mut recv_buf: [u8; 1024] = [0; 1024];
@@ -82,10 +81,10 @@ impl Client {
         // TODO: handle connection establishment with CID change Frame
         let packet = Packet::new(0, packet_id);
         let bytes = packet.assemble();
-        conn.send(&bytes).context("Failed to send packet")?;
+        conn.send(&bytes).await.context("Failed to send packet")?;
         packet_id += 1;
 
-        let size = conn.recv(&mut recv_buf)?;
+        let size = conn.recv(&mut recv_buf).await?;
         let packet = Packet::parse_buf(&recv_buf[..size]).context("Failed to parse packet")?;
 
         // Check for connection establishment
@@ -118,7 +117,7 @@ impl Client {
         }
 
         // Start the packet assembler and sender
-        let conn_clone = conn.try_clone().context("Failed to clone connection")?;
+        let conn_clone = conn.clone();
         tokio::spawn(async move {
             while let Some(frame) = assembler_rx.next().await {
                 let mut packet = Packet::new(conn_id, packet_id);
@@ -131,9 +130,11 @@ impl Client {
                         break;
                     }
                 }
+
                 let buf = packet.assemble();
                 conn_clone
                     .send(&buf)
+                    .await
                     .context("Failed to send packet")
                     .unwrap();
                 packet_id += 1;
