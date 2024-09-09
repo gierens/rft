@@ -102,7 +102,7 @@ impl Client {
 
         let mut transmission_complete = vec![false; self.config.files.len()];
 
-        let (assembler_sink, mut assembler_rx): (Sender<Frame>, Receiver<Frame>) = channel(3);
+        let (mut assembler_sink, mut assembler_rx): (Sender<Frame>, Receiver<Frame>) = channel(3);
 
         debug! {"Starting {} stream handlers", self.config.files.len()};
 
