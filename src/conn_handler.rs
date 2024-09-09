@@ -94,7 +94,7 @@ where
                                 //TODO: delete closed connections from server hashmaps
                                 //handlers will terminate if input channels are closed //TODO: read
                                 //parent process will return if mpsc channel has no more senders
-                                info!("Received ExitFrame from client, terminating connection");
+                                debug!("Received ExitFrame from client, terminating connection");
                                 return;
                             }
                             Frame::ConnIdChange(f) => {
@@ -103,10 +103,12 @@ where
                             }
                             Frame::FlowControl(f) => {
                                 //update flow window size
+                                debug!("Received FlowControlFrame with size {}", f.window_size());
                                 let mut fwnd_mtx = flowwnd_switch.lock().unwrap();
                                 *fwnd_mtx = f.window_size();
                             }
                             Frame::Ack(f) => {
+                                debug!("Received ACK for packet ID {}", f.packet_id());
                                 let (lock, cvar) = &*last_ackids_switch;
                                 let id0;
                                 let id1;
@@ -365,7 +367,7 @@ where
         //send packet trough sink
         debug!(
             "Sending packet {:?} with ID {} to sink",
-            packet.clone(),
+            &packet,
             packet.packet_id()
         );
         sink.send(packet).await.expect("could not send packet");
