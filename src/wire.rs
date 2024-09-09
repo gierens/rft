@@ -1264,7 +1264,7 @@ impl Frame {
     pub fn is_exit(&self) -> bool {
         matches!(self, Frame::Exit(_))
     }
-    
+
     pub fn is_conn_id_change(&self) -> bool {
         matches!(self, Frame::ConnIdChange(_))
     }

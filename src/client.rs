@@ -5,13 +5,12 @@ use anyhow::{anyhow, Context};
 use futures::channel::mpsc::{channel, Receiver, Sender};
 use futures::{SinkExt, StreamExt};
 use log::{debug, error, info, warn};
-use tokio::time::sleep;
 use std::net::{Ipv4Addr, SocketAddrV4};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::UdpSocket;
-use std::path::PathBuf;
-use bytes::BytesMut;
+use tokio::time::sleep;
 use tokio::task::spawn_blocking;
 
 #[derive(Debug)]
@@ -57,7 +56,10 @@ impl Client {
         // Connect the client to the specified server
         let socket = match UdpSocket::bind("0.0.0.0:0").await {
             Ok(socket) => {
-                match socket.connect(SocketAddrV4::new(self.config.host, self.config.port)).await {
+                match socket
+                    .connect(SocketAddrV4::new(self.config.host, self.config.port))
+                    .await
+                {
                     Ok(_) => socket,
                     Err(e) => return Err(anyhow!("Failed to connect to server: {}", e)),
                 }
@@ -149,9 +151,7 @@ impl Client {
                     }
                 }
 
-                let buf = spawn_blocking(move || {
-                    packet.assemble()
-                }).await.unwrap();
+                let buf = spawn_blocking(move || packet.assemble()).await.unwrap();
                 conn_clone
                     .send(&buf)
                     .await
@@ -172,7 +172,16 @@ impl Client {
         debug! {"Sending {} ReadFrames to server to read files", self.config.files.len()};
         // Send the ReadFrame's to the server to read the entire files
         for (i, path) in self.config.files.iter().enumerate() {
-            assembler_sink.send(Frame::Read(ReadFrame::new((i + 1) as u16, 0, 0, 0, 0, path))).await?;
+            assembler_sink
+                .send(Frame::Read(ReadFrame::new(
+                    (i + 1) as u16,
+                    0,
+                    0,
+                    0,
+                    0,
+                    path,
+                )))
+                .await?;
         }
 
         // Receive the Packets from the server and switch the contained Frames to the corresponding sinks
@@ -188,7 +197,9 @@ impl Client {
                 );
             }
             last_recv_packet_id = _recv_packet_id;
-            assembler_sink.send(Frame::Ack(AckFrame::new(last_recv_packet_id))).await?;
+            assembler_sink
+                .send(Frame::Ack(AckFrame::new(last_recv_packet_id)))
+                .await?;
 
             let frames = packet.frames;
             for frame in frames {
@@ -230,7 +241,7 @@ impl Client {
         // Send Exit Frame
         let mut packet = Packet::new(conn_id, packet_id);
         packet.add_frame(Frame::Exit(ExitFrame::new()));
-        let bytes = spawn_blocking(move || { packet.assemble() }).await?;
+        let bytes = spawn_blocking(move || packet.assemble()).await?;
         conn.send(&bytes).await.context("Failed to send packet")?;
         debug!("Sent ExitFrame to server with packet_id {}", packet_id);
         Ok(())

@@ -9,8 +9,8 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::net::UdpSocket;
-use tokio::time::timeout;
 use tokio::task::spawn_blocking;
+use tokio::time::timeout;
 
 pub struct Server {
     port: u16,
@@ -57,9 +57,10 @@ impl Server {
                     .recv_from(&mut buf)
                     .await
                     .expect("UDP Socket rx error");
-                let packet = spawn_blocking(move || {
-                    Packet::parse_buf(&buf[..size])
-                }).await.unwrap().expect("Failed to parse packet");
+                let packet = spawn_blocking(move || Packet::parse_buf(&buf[..size]))
+                    .await
+                    .unwrap()
+                    .expect("Failed to parse packet");
 
                 debug!("Received packet: {:?}", &packet);
 
@@ -132,9 +133,7 @@ impl Server {
                     .get(&packet.connection_id())
                     .expect("connID not in output_map at tx");
             }
-            let packet_bytes = spawn_blocking(move || {
-                packet.assemble()
-            }).await?;
+            let packet_bytes = spawn_blocking(move || packet.assemble()).await?;
             udp_tx
                 .send_to(&packet_bytes, dest)
                 .await
