@@ -1256,6 +1256,138 @@ impl Frame {
             Frame::List(frame) => frame.stream_id(),
         }
     }
+
+    pub fn is_ack(&self) -> bool {
+        matches!(self, Frame::Ack(_))
+    }
+
+    pub fn is_exit(&self) -> bool {
+        matches!(self, Frame::Exit(_))
+    }
+    
+    pub fn is_conn_id_change(&self) -> bool {
+        matches!(self, Frame::ConnIdChange(_))
+    }
+
+    pub fn is_flow_control(&self) -> bool {
+        matches!(self, Frame::FlowControl(_))
+    }
+
+    pub fn is_answer(&self) -> bool {
+        matches!(self, Frame::Answer(_))
+    }
+
+    pub fn is_error(&self) -> bool {
+        matches!(self, Frame::Error(_))
+    }
+
+    pub fn is_data(&self) -> bool {
+        matches!(self, Frame::Data(_))
+    }
+
+    pub fn is_read(&self) -> bool {
+        matches!(self, Frame::Read(_))
+    }
+
+    pub fn is_write(&self) -> bool {
+        matches!(self, Frame::Write(_))
+    }
+
+    pub fn is_checksum(&self) -> bool {
+        matches!(self, Frame::Checksum(_))
+    }
+
+    pub fn is_stat(&self) -> bool {
+        matches!(self, Frame::Stat(_))
+    }
+
+    pub fn is_list(&self) -> bool {
+        matches!(self, Frame::List(_))
+    }
+
+    pub fn ack(&self) -> Option<&AckFrame> {
+        match self {
+            Frame::Ack(frame) => Some(frame),
+            _ => None,
+        }
+    }
+
+    pub fn exit(&self) -> Option<&ExitFrame> {
+        match self {
+            Frame::Exit(frame) => Some(frame),
+            _ => None,
+        }
+    }
+
+    pub fn conn_id_change(&self) -> Option<&ConnIdChangeFrame> {
+        match self {
+            Frame::ConnIdChange(frame) => Some(frame),
+            _ => None,
+        }
+    }
+
+    pub fn flow_control(&self) -> Option<&FlowControlFrame> {
+        match self {
+            Frame::FlowControl(frame) => Some(frame),
+            _ => None,
+        }
+    }
+
+    pub fn answer(&self) -> Option<&AnswerFrame> {
+        match self {
+            Frame::Answer(frame) => Some(frame),
+            _ => None,
+        }
+    }
+
+    pub fn error(&self) -> Option<&ErrorFrame> {
+        match self {
+            Frame::Error(frame) => Some(frame),
+            _ => None,
+        }
+    }
+
+    pub fn data(&self) -> Option<&DataFrame> {
+        match self {
+            Frame::Data(frame) => Some(frame),
+            _ => None,
+        }
+    }
+
+    pub fn read(&self) -> Option<&ReadFrame> {
+        match self {
+            Frame::Read(frame) => Some(frame),
+            _ => None,
+        }
+    }
+
+    pub fn write(&self) -> Option<&WriteFrame> {
+        match self {
+            Frame::Write(frame) => Some(frame),
+            _ => None,
+        }
+    }
+
+    pub fn checksum(&self) -> Option<&ChecksumFrame> {
+        match self {
+            Frame::Checksum(frame) => Some(frame),
+            _ => None,
+        }
+    }
+
+    pub fn stat(&self) -> Option<&StatFrame> {
+        match self {
+            Frame::Stat(frame) => Some(frame),
+            _ => None,
+        }
+    }
+
+    pub fn list(&self) -> Option<&ListFrame> {
+        match self {
+            Frame::List(frame) => Some(frame),
+            _ => None,
+        }
+    }
 }
 
 impl Debug for Frame {
