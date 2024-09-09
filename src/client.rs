@@ -121,13 +121,31 @@ impl Client {
         tokio::spawn(async move {
             while let Some(frame) = assembler_rx.next().await {
                 let mut packet = Packet::new(conn_id, packet_id);
-                packet.add_frame(frame);
-                for _ in 0..2 {
-                    // Add up to 2 more frames per packet
-                    if let Some(frame) = assembler_rx.next().await {
+
+                sleep(Duration::from_millis(5)).await;
+                match frame {
+                    Frame::Ack(mut ack_frame) => {
+                        for _ in 0..10 {
+                            // info!("trying to reduce ack spam, take {}...", i);
+                            if let Ok(Some(frame2)) = assembler_rx.try_next() {
+                                match frame2 {
+                                    Frame::Ack(ack_frame2) => {
+                                        ack_frame = ack_frame2;
+                                    }
+                                    _ => {
+                                        packet.add_frame(ack_frame.into());
+                                        packet.add_frame(frame2);
+                                        break;
+                                    }
+                                }
+                            } else {
+                                packet.add_frame(ack_frame.into());
+                                break;
+                            }
+                        }
+                    }
+                    _ => {
                         packet.add_frame(frame);
-                    } else {
-                        break;
                     }
                 }
 
