@@ -1,7 +1,7 @@
 use crate::stream_handler::stream_handler;
 use crate::wire::{AckFrame, ErrorFrame, FlowControlFrame, Frame, Packet, Size};
 use futures::{Sink, SinkExt, Stream, StreamExt};
-use log::{debug, error, info};
+use log::{debug, error};
 use std::cmp::min;
 use std::collections::HashMap;
 use std::fmt::Debug;
