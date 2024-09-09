@@ -105,11 +105,7 @@ fn main() {
             if config.files.is_empty() {
                 return Err(anyhow::anyhow!("No files specified"));
             }
-            let mut client = Client::new(config);
-            match client.connect() {
-                Ok(_) => client.start().await,
-                Err(e) => Err(e),
-            }
+            Client::new(config).start().await
         }
     });
 
