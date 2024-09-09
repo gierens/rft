@@ -61,7 +61,7 @@ impl Server {
                     Packet::parse_buf(&buf[..size])
                 }).await.unwrap().expect("Failed to parse packet");
 
-                debug!("Received packet: {:?}", packet.clone());
+                debug!("Received packet: {:?}", &packet);
 
                 match packet.connection_id() {
                     0 => {
