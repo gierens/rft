@@ -1,4 +1,4 @@
-use crate::wire::{AnswerFrame, DataFrame, ErrorFrame, Frame};
+use crate::wire::{AnswerFrame, DataFrame, ErrorFrame, Frame, ReadFrame};
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
 use futures::{Sink, SinkExt, Stream, StreamExt};
@@ -32,6 +32,125 @@ fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
     Ok(context.finish())
 }
 
+pub async fn read_handler<S: Sink<Frame> + Unpin>(
+    mut stream: impl Stream<Item = Frame> + Unpin,
+    mut sink: S,
+    cmd: ReadFrame,
+) -> anyhow::Result<()>
+where
+    <S as futures::Sink<Frame>>::Error: Debug,
+{
+    info!("Received Read command");
+    //parse path
+    let path: String = match cmd.path().to_str() {
+        Some(s) => s.into(),
+        None => {
+            sink.send(ErrorFrame::new(cmd.stream_id(), "Invalid Payload").into())
+                .await
+                .expect("stream_handler: could not send response");
+            return Ok(());
+        }
+    };
+
+    //open file
+    let file: File = match OpenOptions::new().read(true).open(path.clone()) {
+        Ok(f) => {
+            debug!("Opened file: {}", path);
+            f
+        }
+        Err(e) => {
+            warn!("Could not open file: {}", e);
+            sink.send(ErrorFrame::new(cmd.stream_id(), e.to_string().as_str()).into())
+                .await
+                .expect("stream_handler: could not send response");
+            return Ok(());
+        }
+    };
+
+    //get file size
+    let metadata = fs::metadata(path.clone()).expect("Could not get file metadata");
+    let file_size = metadata.len();
+
+    //check if trying to read past EOF
+    if cmd.offset() + cmd.length() > file_size {
+        warn!("Trying to read past EOF");
+        sink.send(ErrorFrame::new(cmd.stream_id(), "You're trying to read past EOF").into())
+            .await
+            .expect("stream_handler: could not send response");
+        return Ok(());
+    }
+
+    let read_target = match cmd.length() {
+        0 => file_size,
+        _ => min(cmd.offset() + cmd.length(), file_size),
+    };
+
+    //move cursor to offset
+    //TODO: may have to check manually if offset is past file size ??
+    let mut reader = BufReader::new(file);
+    match reader.seek(SeekFrom::Start(cmd.offset())) {
+        Ok(_) => {}
+        Err(e) => {
+            sink.send(ErrorFrame::new(cmd.stream_id(), e.to_string().as_str()).into())
+                .await
+                .expect("stream_handler: could not send response");
+            return Ok(());
+        }
+    }
+
+    //read data from file and generate data frames
+    let mut last_offset = cmd.offset(); //the first byte not yet sent
+    let mut fin = false;
+    let mut read_buf = [0u8; 128]; //TODO: which buf size to use? 128 for tests.
+    loop {
+        //check if we are finished
+        if last_offset >= read_target && fin {
+            break;
+        };
+
+        //check if we are orphaned
+        match timeout(Duration::from_micros(1), stream.next()).await {
+            Ok(_) => {
+                //stream closed, return
+                debug!("Read handler returned");
+                return Ok(());
+            }
+            Err(_) => {
+                //ok, stream not closed
+            }
+        }
+
+        //read bytes from file into buf
+        let mut data_size = reader.read(&mut read_buf).expect("file read error");
+
+        //check if we reached read_target -> this frame is EOF
+        if last_offset >= read_target {
+            data_size = 0;
+            fin = true;
+        }
+
+        //check if we read past read_target in this iteration
+        if last_offset + (data_size as u64) >= read_target {
+            //adjust data_size to only send data up to read_target
+            data_size -= ((last_offset + (data_size as u64)) - read_target) as usize;
+        }
+
+        let data_bytes = Bytes::copy_from_slice(&read_buf[..data_size]);
+
+        //assemble and dispatch data frame
+        {
+            sink.send(DataFrame::new(cmd.stream_id(), last_offset, data_bytes).into())
+                .await
+                .expect("stream_handler: could not send response");
+        }
+
+        //update counters
+        last_offset += data_size as u64;
+    }
+
+    Ok(())
+}
+
 #[allow(dead_code)]
 pub async fn stream_handler<S: Sink<Frame> + Unpin>(
     mut stream: impl Stream<Item = Frame> + Unpin,
@@ -44,127 +163,7 @@ where
         None => Ok(()),
         Some(frame) => {
             match frame {
-                Frame::Read(cmd) => {
-                    info!("Received Read command");
-                    //parse path
-                    let path: String = match cmd.path().to_str() {
-                        Some(s) => s.into(),
-                        None => {
-                            sink.send(ErrorFrame::new(cmd.stream_id(), "Invalid Payload").into())
-                                .await
-                                .expect("stream_handler: could not send response");
-                            return Ok(());
-                        }
-                    };
-
-                    //open file
-                    let file: File = match OpenOptions::new().read(true).open(path.clone()) {
-                        Ok(f) => {
-                            debug!("Opened file: {}", path);
-                            f
-                        }
-                        Err(e) => {
-                            warn!("Could not open file: {}", e);
-                            sink.send(
-                                ErrorFrame::new(cmd.stream_id(), e.to_string().as_str()).into(),
-                            )
-                            .await
-                            .expect("stream_handler: could not send response");
-                            return Ok(());
-                        }
-                    };
-
-                    //get file size
-                    let metadata = fs::metadata(path.clone()).expect("Could not get file metadata");
-                    let file_size = metadata.len();
-
-                    //check if trying to read past EOF
-                    if cmd.offset() + cmd.length() > file_size {
-                        warn!("Trying to read past EOF");
-                        sink.send(
-                            ErrorFrame::new(cmd.stream_id(), "You're trying to read past EOF")
-                                .into(),
-                        )
-                        .await
-                        .expect("stream_handler: could not send response");
-                        return Ok(());
-                    }
-
-                    let read_target = match cmd.length() {
-                        0 => file_size,
-                        _ => min(cmd.offset() + cmd.length(), file_size),
-                    };
-
-                    //move cursor to offset
-                    //TODO: may have to check manually if offset is past file size ??
-                    let mut reader = BufReader::new(file);
-                    match reader.seek(SeekFrom::Start(cmd.offset())) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            sink.send(
-                                ErrorFrame::new(cmd.stream_id(), e.to_string().as_str()).into(),
-                            )
-                            .await
-                            .expect("stream_handler: could not send response");
-                            return Ok(());
-                        }
-                    }
-
-                    //read data from file and generate data frames
-                    let mut last_offset = cmd.offset(); //the first byte not yet sent
-                    let mut fin = false;
-                    let mut read_buf = [0u8; 128]; //TODO: which buf size to use? 128 for tests.
-                    loop {
-                        //check if we are finished
-                        if last_offset >= read_target && fin {
-                            break;
-                        };
-
-                        //check if we are orphaned
-                        match timeout(Duration::from_micros(1), stream.next()).await {
-                            Ok(_) => {
-                                //stream closed, return
-                                debug!("Read handler returned");
-                                return Ok(());
-                            }
-                            Err(_) => {
-                                //ok, stream not closed
-                            }
-                        }
-
-                        //read bytes from file into buf
-                        let mut data_size = reader.read(&mut read_buf).expect("file read error");
-
-                        //check if we reached read_target -> this frame is EOF
-                        if last_offset >= read_target {
-                            data_size = 0;
-                            fin = true;
-                        }
-
-                        //check if we read past read_target in this iteration
-                        if last_offset + (data_size as u64) >= read_target {
-                            //adjust data_size to only send data up to read_target
-                            data_size -=
-                                ((last_offset + (data_size as u64)) - read_target) as usize;
-                        }
-
-                        let data_bytes = Bytes::copy_from_slice(&read_buf[..data_size]);
-
-                        //assemble and dispatch data frame
-                        {
-                            sink.send(
-                                DataFrame::new(cmd.stream_id(), last_offset, data_bytes).into(),
-                            )
-                            .await
-                            .expect("stream_handler: could not send response");
-                        }
-
-                        //update counters
-                        last_offset += data_size as u64;
-                    }
-
-                    Ok(())
-                }
+                Frame::Read(cmd) => read_handler(stream, sink, cmd).await,
 
                 Frame::Write(cmd) => {
                     info!("Received Write command");
