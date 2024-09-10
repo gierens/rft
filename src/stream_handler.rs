@@ -1,5 +1,6 @@
 use crate::wire::{
-    AnswerFrame, ChecksumFrame, DataFrame, ErrorFrame, Frame, ReadFrame, StatFrame, WriteFrame,
+    AnswerFrame, ChecksumFrame, DataFrame, ErrorFrame, Frame, ListFrame, ReadFrame, StatFrame,
+    WriteFrame,
 };
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
@@ -302,10 +303,24 @@ where
     Ok(())
 }
 
+type Type = ListFrame;
+
+pub async fn list_handler<S: Sink<Frame> + Unpin>(mut sink: S, cmd: Type) -> anyhow::Result<()>
+where
+    <S as futures::Sink<Frame>>::Error: Debug,
+{
+    info!("Received List command");
+    error!("List command not implemented");
+    sink.send(ErrorFrame::new(cmd.stream_id(), "Not implemented").into())
+        .await
+        .expect("stream_handler: could not send response");
+    Ok(())
+}
+
 #[allow(dead_code)]
 pub async fn stream_handler<S: Sink<Frame> + Unpin>(
     mut stream: impl Stream<Item = Frame> + Unpin,
-    mut sink: S,
+    sink: S,
 ) -> anyhow::Result<()>
 where
     <S as futures::Sink<Frame>>::Error: Debug,
@@ -317,15 +332,7 @@ where
             Frame::Write(cmd) => write_handler(stream, sink, cmd).await,
             Frame::Checksum(cmd) => checksum_handler(sink, cmd).await,
             Frame::Stat(cmd) => stat_handler(sink, cmd).await,
-
-            Frame::List(cmd) => {
-                info!("Received List command");
-                error!("List command not implemented");
-                sink.send(ErrorFrame::new(cmd.stream_id(), "Not implemented").into())
-                    .await
-                    .expect("stream_handler: could not send response");
-                Ok(())
-            }
+            Frame::List(cmd) => list_handler(sink, cmd).await,
             _ => {
                 error!("Illegal initial frame reached stream_handler");
                 Err(anyhow!("Illegal initial frame reached stream_handler"))
