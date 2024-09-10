@@ -1,5 +1,5 @@
 use crate::wire::{
-    AnswerFrame, ChecksumFrame, DataFrame, ErrorFrame, Frame, ReadFrame, WriteFrame,
+    AnswerFrame, ChecksumFrame, DataFrame, ErrorFrame, Frame, ReadFrame, StatFrame, WriteFrame,
 };
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
@@ -290,6 +290,18 @@ where
     Ok(())
 }
 
+pub async fn stat_handler<S: Sink<Frame> + Unpin>(mut sink: S, cmd: StatFrame) -> anyhow::Result<()>
+where
+    <S as futures::Sink<Frame>>::Error: Debug,
+{
+    info!("Received Stat command");
+    error!("Stat command not implemented");
+    sink.send(ErrorFrame::new(cmd.stream_id(), "Not implemented").into())
+        .await
+        .expect("stream_handler: could not send response");
+    Ok(())
+}
+
 #[allow(dead_code)]
 pub async fn stream_handler<S: Sink<Frame> + Unpin>(
     mut stream: impl Stream<Item = Frame> + Unpin,
@@ -304,15 +316,7 @@ where
             Frame::Read(cmd) => read_handler(stream, sink, cmd).await,
             Frame::Write(cmd) => write_handler(stream, sink, cmd).await,
             Frame::Checksum(cmd) => checksum_handler(sink, cmd).await,
-
-            Frame::Stat(cmd) => {
-                info!("Received Stat command");
-                error!("Stat command not implemented");
-                sink.send(ErrorFrame::new(cmd.stream_id(), "Not implemented").into())
-                    .await
-                    .expect("stream_handler: could not send response");
-                Ok(())
-            }
+            Frame::Stat(cmd) => stat_handler(sink, cmd).await,
 
             Frame::List(cmd) => {
                 info!("Received List command");
@@ -322,7 +326,6 @@ where
                     .expect("stream_handler: could not send response");
                 Ok(())
             }
-
             _ => {
                 error!("Illegal initial frame reached stream_handler");
                 Err(anyhow!("Illegal initial frame reached stream_handler"))
