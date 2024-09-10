@@ -1,4 +1,4 @@
-use crate::wire::{AnswerFrame, DataFrame, ErrorFrame, Frame, ReadFrame};
+use crate::wire::{AnswerFrame, DataFrame, ErrorFrame, Frame, ReadFrame, WriteFrame};
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
 use futures::{Sink, SinkExt, Stream, StreamExt};
@@ -151,6 +151,103 @@ where
     Ok(())
 }
 
+pub async fn write_handler<S: Sink<Frame> + Unpin>(
+    mut stream: impl Stream<Item = Frame> + Unpin,
+    mut sink: S,
+    cmd: WriteFrame,
+) -> anyhow::Result<()>
+where
+    <S as futures::Sink<Frame>>::Error: Debug,
+{
+    info!("Received Write command");
+    //parse path
+    let path: String = match cmd.path().to_str() {
+        Some(s) => s.into(),
+        None => {
+            sink.send(ErrorFrame::new(cmd.stream_id(), "Invalid Payload").into())
+                .await
+                .expect("stream_handler: could not send response");
+            return Ok(());
+        }
+    };
+
+    //create / open file
+    //TODO: use cmd-header.length() to check if enough disk space available
+    let file: File = match OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(path.clone())
+    {
+        Ok(f) => f,
+        Err(e) => {
+            sink.send(ErrorFrame::new(cmd.stream_id(), e.to_string().as_str()).into())
+                .await
+                .expect("stream_handler: could not send response");
+            return Ok(());
+        }
+    };
+
+    //check if file size matches write offset
+    let metadata = fs::metadata(path.clone()).expect("Could not get file metadata");
+    if metadata.len() != cmd.offset() {
+        sink.send(ErrorFrame::new(cmd.stream_id(), "Write offset does not match file size").into())
+            .await
+            .expect("stream_handler: could not send response");
+        return Ok(());
+    }
+
+    //receive Data frames and write to file; stop if transmission complete
+    let mut writer = BufWriter::new(file);
+    let mut last_offset = cmd.offset();
+    loop {
+        let next_frame = match timeout(Duration::from_secs(5), stream.next()).await {
+            Ok(f) => f,
+            Err(_) => {
+                //timeout: sed error frame, exit
+                sink.send(ErrorFrame::new(cmd.stream_id(), "Timeout").into())
+                    .await
+                    .expect("stream_handler: could not send response");
+                return Ok(());
+            }
+        };
+
+        if let Some(Frame::Data(f)) = next_frame {
+            //empty data frame marks end of transmission
+            if f.length() == 0 {
+                break;
+            }
+
+            //check if offset matches
+            if last_offset != f.offset() {
+                //mismatch -> send Error Frame, abort
+                sink.send(
+                    ErrorFrame::new(cmd.stream_id(), "Write offset mismatch, aborting...").into(),
+                )
+                .await
+                .expect("stream_handler: could not send Error");
+                break;
+            }
+
+            //write data from frame to file
+            writer
+                .write_all(f.payload())
+                .expect("Could not write to BufWriter");
+
+            //update last received frame id and offset
+            last_offset += f.length();
+        } else {
+            //illegal frame or channel closed: abort transmission and leave file so client can continue later
+            debug!("Write handler returned");
+            sink.send(ErrorFrame::new(cmd.stream_id(), "Illegal Frame Received").into())
+                .await
+                .expect("stream_handler: could not send response");
+            return Ok(());
+        }
+    }
+    Ok(())
+}
+
 #[allow(dead_code)]
 pub async fn stream_handler<S: Sink<Frame> + Unpin>(
     mut stream: impl Stream<Item = Frame> + Unpin,
@@ -161,33 +258,30 @@ where
 {
     match stream.next().await {
         None => Ok(()),
-        Some(frame) => {
-            match frame {
-                Frame::Read(cmd) => read_handler(stream, sink, cmd).await,
+        Some(frame) => match frame {
+            Frame::Read(cmd) => read_handler(stream, sink, cmd).await,
+            Frame::Write(cmd) => write_handler(stream, sink, cmd).await,
 
-                Frame::Write(cmd) => {
-                    info!("Received Write command");
-                    //parse path
-                    let path: String = match cmd.path().to_str() {
-                        Some(s) => s.into(),
-                        None => {
-                            sink.send(ErrorFrame::new(cmd.stream_id(), "Invalid Payload").into())
-                                .await
-                                .expect("stream_handler: could not send response");
-                            return Ok(());
+            Frame::Checksum(cmd) => {
+                info!("Received Checksum command");
+                match cmd.path().to_str() {
+                    Some(p) => match File::open(p) {
+                        Ok(f) => {
+                            debug!("Opened file: {}", p);
+                            let reader = BufReader::new(f);
+                            let digest = sha256_digest(reader)?;
+                            sink.send(
+                                AnswerFrame::new(
+                                    cmd.stream_id(),
+                                    Bytes::copy_from_slice(digest.as_ref()),
+                                )
+                                .into(),
+                            )
+                            .await
+                            .expect("stream_handler: could not send response");
                         }
-                    };
-
-                    //create / open file
-                    //TODO: use cmd-header.length() to check if enough disk space available
-                    let file: File = match OpenOptions::new()
-                        .write(true)
-                        .create(true)
-                        .truncate(false)
-                        .open(path.clone())
-                    {
-                        Ok(f) => f,
                         Err(e) => {
+                            warn!("Could not open file: {}", e);
                             sink.send(
                                 ErrorFrame::new(cmd.stream_id(), e.to_string().as_str()).into(),
                             )
@@ -195,144 +289,41 @@ where
                             .expect("stream_handler: could not send response");
                             return Ok(());
                         }
-                    };
-
-                    //check if file size matches write offset
-                    let metadata = fs::metadata(path.clone()).expect("Could not get file metadata");
-                    if metadata.len() != cmd.offset() {
-                        sink.send(
-                            ErrorFrame::new(
-                                cmd.stream_id(),
-                                "Write offset does not match file size",
-                            )
-                            .into(),
-                        )
-                        .await
-                        .expect("stream_handler: could not send response");
-                        return Ok(());
-                    }
-
-                    //receive Data frames and write to file; stop if transmission complete
-                    let mut writer = BufWriter::new(file);
-                    let mut last_offset = cmd.offset();
-                    loop {
-                        let next_frame = match timeout(Duration::from_secs(5), stream.next()).await
-                        {
-                            Ok(f) => f,
-                            Err(_) => {
-                                //timeout: sed error frame, exit
-                                sink.send(ErrorFrame::new(cmd.stream_id(), "Timeout").into())
-                                    .await
-                                    .expect("stream_handler: could not send response");
-                                return Ok(());
-                            }
-                        };
-
-                        if let Some(Frame::Data(f)) = next_frame {
-                            //empty data frame marks end of transmission
-                            if f.length() == 0 {
-                                break;
-                            }
-
-                            //check if offset matches
-                            if last_offset != f.offset() {
-                                //mismatch -> send Error Frame, abort
-                                sink.send(
-                                    ErrorFrame::new(
-                                        cmd.stream_id(),
-                                        "Write offset mismatch, aborting...",
-                                    )
-                                    .into(),
-                                )
-                                .await
-                                .expect("stream_handler: could not send Error");
-                                break;
-                            }
-
-                            //write data from frame to file
-                            writer
-                                .write_all(f.payload())
-                                .expect("Could not write to BufWriter");
-
-                            //update last received frame id and offset
-                            last_offset += f.length();
-                        } else {
-                            //illegal frame or channel closed: abort transmission and leave file so client can continue later
-                            debug!("Write handler returned");
-                            sink.send(
-                                ErrorFrame::new(cmd.stream_id(), "Illegal Frame Received").into(),
-                            )
+                    },
+                    None => {
+                        sink.send(ErrorFrame::new(cmd.stream_id(), "Invalid Payload").into())
                             .await
                             .expect("stream_handler: could not send response");
-                            return Ok(());
-                        }
+                        return Ok(());
                     }
-                    Ok(())
                 }
 
-                Frame::Checksum(cmd) => {
-                    info!("Received Checksum command");
-                    match cmd.path().to_str() {
-                        Some(p) => match File::open(p) {
-                            Ok(f) => {
-                                debug!("Opened file: {}", p);
-                                let reader = BufReader::new(f);
-                                let digest = sha256_digest(reader)?;
-                                sink.send(
-                                    AnswerFrame::new(
-                                        cmd.stream_id(),
-                                        Bytes::copy_from_slice(digest.as_ref()),
-                                    )
-                                    .into(),
-                                )
-                                .await
-                                .expect("stream_handler: could not send response");
-                            }
-                            Err(e) => {
-                                warn!("Could not open file: {}", e);
-                                sink.send(
-                                    ErrorFrame::new(cmd.stream_id(), e.to_string().as_str()).into(),
-                                )
-                                .await
-                                .expect("stream_handler: could not send response");
-                                return Ok(());
-                            }
-                        },
-                        None => {
-                            sink.send(ErrorFrame::new(cmd.stream_id(), "Invalid Payload").into())
-                                .await
-                                .expect("stream_handler: could not send response");
-                            return Ok(());
-                        }
-                    }
-
-                    Ok(())
-                }
-
-                Frame::Stat(cmd) => {
-                    info!("Received Stat command");
-                    error!("Stat command not implemented");
-                    sink.send(ErrorFrame::new(cmd.stream_id(), "Not implemented").into())
-                        .await
-                        .expect("stream_handler: could not send response");
-                    Ok(())
-                }
-
-                Frame::List(cmd) => {
-                    info!("Received List command");
-                    error!("List command not implemented");
-                    sink.send(ErrorFrame::new(cmd.stream_id(), "Not implemented").into())
-                        .await
-                        .expect("stream_handler: could not send response");
-                    Ok(())
-                }
-
-                _ => {
-                    error!("Illegal initial frame reached stream_handler");
-                    Err(anyhow!("Illegal initial frame reached stream_handler"))
-                }
+                Ok(())
             }
-        }
+
+            Frame::Stat(cmd) => {
+                info!("Received Stat command");
+                error!("Stat command not implemented");
+                sink.send(ErrorFrame::new(cmd.stream_id(), "Not implemented").into())
+                    .await
+                    .expect("stream_handler: could not send response");
+                Ok(())
+            }
+
+            Frame::List(cmd) => {
+                info!("Received List command");
+                error!("List command not implemented");
+                sink.send(ErrorFrame::new(cmd.stream_id(), "Not implemented").into())
+                    .await
+                    .expect("stream_handler: could not send response");
+                Ok(())
+            }
+
+            _ => {
+                error!("Illegal initial frame reached stream_handler");
+                Err(anyhow!("Illegal initial frame reached stream_handler"))
+            }
+        },
     }
 }
 
