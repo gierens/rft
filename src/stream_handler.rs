@@ -1,4 +1,6 @@
-use crate::wire::{AnswerFrame, DataFrame, ErrorFrame, Frame, ReadFrame, WriteFrame};
+use crate::wire::{
+    AnswerFrame, ChecksumFrame, DataFrame, ErrorFrame, Frame, ReadFrame, WriteFrame,
+};
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
 use futures::{Sink, SinkExt, Stream, StreamExt};
@@ -248,6 +250,46 @@ where
     Ok(())
 }
 
+pub async fn checksum_handler<S: Sink<Frame> + Unpin>(
+    mut sink: S,
+    cmd: ChecksumFrame,
+) -> anyhow::Result<()>
+where
+    <S as futures::Sink<Frame>>::Error: Debug,
+{
+    info!("Received Checksum command");
+    match cmd.path().to_str() {
+        Some(p) => match File::open(p) {
+            Ok(f) => {
+                debug!("Opened file: {}", p);
+                let reader = BufReader::new(f);
+                let digest = sha256_digest(reader)?;
+                sink.send(
+                    AnswerFrame::new(cmd.stream_id(), Bytes::copy_from_slice(digest.as_ref()))
+                        .into(),
+                )
+                .await
+                .expect("stream_handler: could not send response");
+            }
+            Err(e) => {
+                warn!("Could not open file: {}", e);
+                sink.send(ErrorFrame::new(cmd.stream_id(), e.to_string().as_str()).into())
+                    .await
+                    .expect("stream_handler: could not send response");
+                return Ok(());
+            }
+        },
+        None => {
+            sink.send(ErrorFrame::new(cmd.stream_id(), "Invalid Payload").into())
+                .await
+                .expect("stream_handler: could not send response");
+            return Ok(());
+        }
+    }
+
+    Ok(())
+}
+
 #[allow(dead_code)]
 pub async fn stream_handler<S: Sink<Frame> + Unpin>(
     mut stream: impl Stream<Item = Frame> + Unpin,
@@ -261,45 +303,7 @@ where
         Some(frame) => match frame {
             Frame::Read(cmd) => read_handler(stream, sink, cmd).await,
             Frame::Write(cmd) => write_handler(stream, sink, cmd).await,
-
-            Frame::Checksum(cmd) => {
-                info!("Received Checksum command");
-                match cmd.path().to_str() {
-                    Some(p) => match File::open(p) {
-                        Ok(f) => {
-                            debug!("Opened file: {}", p);
-                            let reader = BufReader::new(f);
-                            let digest = sha256_digest(reader)?;
-                            sink.send(
-                                AnswerFrame::new(
-                                    cmd.stream_id(),
-                                    Bytes::copy_from_slice(digest.as_ref()),
-                                )
-                                .into(),
-                            )
-                            .await
-                            .expect("stream_handler: could not send response");
-                        }
-                        Err(e) => {
-                            warn!("Could not open file: {}", e);
-                            sink.send(
-                                ErrorFrame::new(cmd.stream_id(), e.to_string().as_str()).into(),
-                            )
-                            .await
-                            .expect("stream_handler: could not send response");
-                            return Ok(());
-                        }
-                    },
-                    None => {
-                        sink.send(ErrorFrame::new(cmd.stream_id(), "Invalid Payload").into())
-                            .await
-                            .expect("stream_handler: could not send response");
-                        return Ok(());
-                    }
-                }
-
-                Ok(())
-            }
+            Frame::Checksum(cmd) => checksum_handler(sink, cmd).await,
 
             Frame::Stat(cmd) => {
                 info!("Received Stat command");
