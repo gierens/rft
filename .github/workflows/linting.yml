@@ -2,15 +2,7 @@ name: linting
 
 on:
   push:
-    branches:
-      - 'main'
-    paths:
-      - 'src/**/*'
-      - 'tests/**/*'
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
-      - '.rustfmt.toml'
-      - '.github/workflows/linting.yml'
+    branches: [ 'main' ]
   pull_request:
     branches:
       - 'main'
