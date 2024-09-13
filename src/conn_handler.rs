@@ -305,8 +305,6 @@ where
 
         if packet_id == tx_packet_id {
             //get some frames and add them to packet
-            let mut size = 0;
-
             //wait unboundedly long for fist frame
             let frame = if !peeked_frame.is_empty() {
                 debug!("Poped peeked frame");
@@ -319,7 +317,7 @@ where
             };
 
             packet.add_frame(frame);
-            size = packet.size();
+            let mut size = packet.size();
 
             loop {
                 //TODO: how long to wait for more frames?
