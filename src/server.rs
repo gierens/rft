@@ -31,6 +31,10 @@ impl Server {
         //HashMap for client IPs
         //let mut output_map: HashMap<u32, SocketAddr> = HashMap::new();
         let output_map: Arc<Mutex<HashMap<u32, SocketAddr>>> = Arc::new(Mutex::new(HashMap::new()));
+        let mut loss_sim: Option<Arc<Mutex<LossSimulation>>> = match self.loss_sim.clone() {
+            Some(loss_sim) => Some(Arc::new(Mutex::new(loss_sim))),
+            None => None,
+        };
 
         //HashMap for connection handlers
         let mut input_map: HashMap<u32, mpsc::Sender<Packet>> = HashMap::new();
@@ -48,7 +52,7 @@ impl Server {
 
         //start packet switching task
         let mut output_map_switch = output_map.clone();
-        let mut loss_sim = self.loss_sim.clone();
+        let mut loss_sim_switch = loss_sim.clone();
         tokio::spawn(async move {
             let mut buf = [0; 2048];
             let mut cid_ctr = 1u32;
@@ -61,8 +65,8 @@ impl Server {
                     .await
                     .unwrap()
                     .expect("Failed to parse packet");
-                if let Some(loss_sim) = loss_sim.as_mut() {
-                    if loss_sim.drop() {
+                if let Some(loss_sim) = loss_sim_switch.as_mut() {
+                    if loss_sim.lock().unwrap().drop_packet() {
                         warn!("Simulated loss of received packet {} occurred!", packet.packet_id());
                         continue;
                     }
@@ -130,11 +134,10 @@ impl Server {
         });
 
         //start packet sending
-        let mut loss_sim = self.loss_sim.clone();
         loop {
             let packet = mux_rx.next().await.expect("server mux_rx closed");
             if let Some(loss_sim) = loss_sim.as_mut() {
-                if loss_sim.drop() {
+                if loss_sim.lock().unwrap().drop_packet() {
                     warn!("Simulated loss of sent packet {} occurred!", packet.packet_id());
                     continue;
                 }
