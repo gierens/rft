@@ -151,6 +151,7 @@ impl Client {
                     }
                 }
 
+                debug!("Sending packet with packet {:?}", &packet);
                 let buf = spawn_blocking(move || packet.assemble()).await.unwrap();
                 conn_clone
                     .send(&buf)
