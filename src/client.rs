@@ -124,7 +124,7 @@ impl Client {
             while let Some(frame) = assembler_rx.next().await {
                 let mut packet = Packet::new(conn_id, packet_id);
 
-                sleep(Duration::from_millis(5)).await;
+                sleep(Duration::from_micros(100)).await;
                 match frame {
                     Frame::Ack(mut ack_frame) => {
                         for _ in 0..10 {
