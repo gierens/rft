@@ -30,7 +30,7 @@ impl LossSimulation {
         }
     }
 
-    pub fn drop(&mut self) -> bool {
+    pub fn drop_packet(&mut self) -> bool {
         let prob = if self.state { self.q } else { self.p };
         self.state = self.rng.gen_bool(prob);
         self.state
