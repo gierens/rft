@@ -14,7 +14,6 @@ use tokio::time::timeout;
 
 pub struct Server {
     port: u16,
-    #[allow(dead_code)]
     loss_sim: Option<LossSimulation>,
 }
 
@@ -49,6 +48,7 @@ impl Server {
 
         //start packet switching task
         let mut output_map_switch = output_map.clone();
+        let mut loss_sim = self.loss_sim.clone();
         tokio::spawn(async move {
             let mut buf = [0; 2048];
             let mut cid_ctr = 1u32;
@@ -57,6 +57,12 @@ impl Server {
                     .recv_from(&mut buf)
                     .await
                     .expect("UDP Socket rx error");
+                if let Some(loss_sim) = loss_sim.as_mut() {
+                    if loss_sim.drop() {
+                        warn!("Packet dropped");
+                        continue;
+                    }
+                }
                 let packet = spawn_blocking(move || Packet::parse_buf(&buf[..size]))
                     .await
                     .unwrap()
