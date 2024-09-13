@@ -1,7 +1,7 @@
 use crate::stream_handler::stream_handler;
 use crate::wire::{AckFrame, ErrorFrame, FlowControlFrame, Frame, Packet, Size};
 use futures::{Sink, SinkExt, Stream, StreamExt};
-use log::{debug, warn, error};
+use log::{debug, error, warn};
 use std::cmp::min;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -24,7 +24,6 @@ where
     let flowwnd = Arc::new(Mutex::new(2048u32));
     let last_ackd_ids: Arc<(Mutex<[u32; 2]>, Condvar)> =
         Arc::new((Mutex::new([0, 0]), Condvar::new()));
-
 
     //slow start threshold
     let mut cwnd = Arc::new(Mutex::new((4096u32, u32::MAX, false)));
@@ -279,7 +278,8 @@ where
                         //no new ACK received, wait and continue
                         debug!("Waiting for ACK");
                         let mut timeout_result;
-                        (ids, timeout_result) = cvar.wait_timeout(ids, Duration::from_millis(2000)).unwrap();
+                        (ids, timeout_result) =
+                            cvar.wait_timeout(ids, Duration::from_millis(2000)).unwrap();
                         if timeout_result.timed_out() {
                             let mut nt = ntimeouts.lock().unwrap();
                             if *nt > 3 {
@@ -292,7 +292,7 @@ where
                                 // sink.send(packet).await.expect("could not send packet");
                                 return Ok(());
                             }
-                            *nt += 1; 
+                            *nt += 1;
                             warn!("Timeout waiting for ACK");
                             tx_packet_id = last_ackd_pckt_id;
                             total_bytes = last_ackd_bytes;

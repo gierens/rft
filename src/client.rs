@@ -5,6 +5,7 @@ use anyhow::{anyhow, Context};
 use futures::channel::mpsc::{channel, Receiver, Sender};
 use futures::{SinkExt, StreamExt};
 use log::{debug, error, info, warn};
+use std::fs::remove_file;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -12,7 +13,6 @@ use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::task::spawn_blocking;
 use tokio::time::{sleep, timeout};
-use std::fs::remove_file;
 
 #[derive(Debug)]
 pub struct ClientConfig {
@@ -159,7 +159,11 @@ impl Client {
                         }
                     }
                     Frame::Error(error_frame) => {
-                        warn!("Received error from writer: {} for stream {}, ignoring", error_frame.message(), error_frame.stream_id());
+                        warn!(
+                            "Received error from writer: {} for stream {}, ignoring",
+                            error_frame.message(),
+                            error_frame.stream_id()
+                        );
                         continue;
                     }
                     _ => {
@@ -169,7 +173,10 @@ impl Client {
 
                 if let Some(loss_sim) = loss_sim_clone.as_mut() {
                     if loss_sim.lock().unwrap().drop_packet() {
-                        warn!("Simulated loss of sent packet {} occurred!", packet.packet_id());
+                        warn!(
+                            "Simulated loss of sent packet {} occurred!",
+                            packet.packet_id()
+                        );
                         continue;
                     }
                 }
@@ -237,7 +244,10 @@ impl Client {
             let packet = Packet::parse_buf(&recv_buf[..size])?;
             if let Some(loss_sim) = loss_sim.as_mut() {
                 if loss_sim.lock().unwrap().drop_packet() {
-                    warn!("Simulated loss of received packet {} occurred!", packet.packet_id());
+                    warn!(
+                        "Simulated loss of received packet {} occurred!",
+                        packet.packet_id()
+                    );
                     continue;
                 }
             }
@@ -292,13 +302,20 @@ impl Client {
                 }
 
                 if let Frame::Error(error_frame) = &frame {
-                    warn!("Received error from server: {}, terminating stream {}", error_frame.message(), error_frame.stream_id());
+                    warn!(
+                        "Received error from server: {}, terminating stream {}",
+                        error_frame.message(),
+                        error_frame.stream_id()
+                    );
                     self.sinks[n - 1].send(frame.clone()).await?;
                     self.failed[n - 1] = true;
                 }
 
                 if self.failed[n - 1] {
-                    warn!("Got frame for failed stream {} from server, ignoring", n - 1);
+                    warn!(
+                        "Got frame for failed stream {} from server, ignoring",
+                        n - 1
+                    );
                     continue;
                 }
 

@@ -67,7 +67,10 @@ impl Server {
                     .expect("Failed to parse packet");
                 if let Some(loss_sim) = loss_sim_switch.as_mut() {
                     if loss_sim.lock().unwrap().drop_packet() {
-                        warn!("Simulated loss of received packet {} occurred!", packet.packet_id());
+                        warn!(
+                            "Simulated loss of received packet {} occurred!",
+                            packet.packet_id()
+                        );
                         continue;
                     }
                 }
@@ -138,7 +141,10 @@ impl Server {
             let packet = mux_rx.next().await.expect("server mux_rx closed");
             if let Some(loss_sim) = loss_sim.as_mut() {
                 if loss_sim.lock().unwrap().drop_packet() {
-                    warn!("Simulated loss of sent packet {} occurred!", packet.packet_id());
+                    warn!(
+                        "Simulated loss of sent packet {} occurred!",
+                        packet.packet_id()
+                    );
                     continue;
                 }
             }
