@@ -18,7 +18,6 @@ pub struct ClientConfig {
     pub host: Ipv4Addr,
     pub port: u16,
     pub files: Vec<PathBuf>,
-    #[allow(dead_code)]
     pub loss_sim: Option<LossSimulation>,
 }
 
@@ -27,7 +26,7 @@ impl ClientConfig {
         host: Ipv4Addr,
         port: u16,
         files: Vec<PathBuf>,
-        #[allow(dead_code)] loss_sim: Option<LossSimulation>,
+        loss_sim: Option<LossSimulation>,
     ) -> Self {
         Self {
             host,
@@ -208,6 +207,12 @@ impl Client {
                     continue;
                 }
             };
+            if let Some(loss_sim) = self.config.loss_sim.as_mut() {
+                if loss_sim.drop() {
+                    debug!("Dropping packet");
+                    continue;
+                }
+            }
             let packet = Packet::parse_buf(&recv_buf[..size])?;
             let _recv_packet_id = packet.header().packet_id;
             if _recv_packet_id != last_recv_packet_id + 1 {
