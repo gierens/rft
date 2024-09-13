@@ -42,6 +42,7 @@ impl ClientConfig {
 pub struct Client {
     config: ClientConfig,
     sinks: Vec<Sender<Frame>>,
+    failed: Vec<bool>,
 }
 
 impl Client {
@@ -49,6 +50,7 @@ impl Client {
         Client {
             config,
             sinks: Vec::new(),
+            failed: Vec::new(),
         }
     }
 
@@ -112,6 +114,7 @@ impl Client {
         for _ in &self.config.files {
             let (tx, rx): (Sender<Frame>, Receiver<Frame>) = channel(3);
             self.sinks.push(tx);
+            self.failed.push(false);
             let assembly_sink = assembler_sink.clone();
 
             // Start the stream handlers
@@ -257,6 +260,17 @@ impl Client {
                         info!("Transmission complete for stream {}", n - 1);
                         transmission_complete[n - 1] = true;
                     }
+                }
+
+                if let Frame::Error(error_frame) = &frame {
+                    warn!("Received error from server: {}, terminating stream {}", error_frame.message(), error_frame.stream_id());
+                    self.sinks[n - 1].send(frame.clone()).await?;
+                    self.failed[n - 1] = true;
+                }
+
+                if self.failed[n - 1] {
+                    warn!("Got frame for failed stream {} from server, ignoring", n - 1);
+                    continue;
                 }
 
                 // Send frame to corresponding sink
