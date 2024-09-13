@@ -123,6 +123,7 @@ impl Client {
 
         // Start the packet assembler and sender
         let conn_clone = conn.clone();
+        let mut loss_sim = self.config.loss_sim.clone();
         tokio::spawn(async move {
             while let Some(frame) = assembler_rx.next().await {
                 let mut packet = Packet::new(conn_id, packet_id);
@@ -162,6 +163,12 @@ impl Client {
                     }
                 }
 
+                if let Some(loss_sim) = loss_sim.as_mut() {
+                    if loss_sim.drop() {
+                        warn!("Simulated loss of sent packet {} occurred!", packet.packet_id());
+                        continue;
+                    }
+                }
                 debug!("Sending packet with packet {:?}", &packet);
                 let buf = spawn_blocking(move || packet.assemble()).await.unwrap();
                 conn_clone
@@ -223,13 +230,13 @@ impl Client {
                     continue;
                 }
             };
+            let packet = Packet::parse_buf(&recv_buf[..size])?;
             if let Some(loss_sim) = self.config.loss_sim.as_mut() {
                 if loss_sim.drop() {
-                    debug!("Dropping packet");
+                    warn!("Simulated loss of received packet {} occurred!", packet.packet_id());
                     continue;
                 }
             }
-            let packet = Packet::parse_buf(&recv_buf[..size])?;
             let _recv_packet_id = packet.header().packet_id;
             if _recv_packet_id != last_recv_packet_id + 1 {
                 warn!(
