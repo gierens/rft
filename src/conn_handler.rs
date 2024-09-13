@@ -324,7 +324,7 @@ where
             loop {
                 //TODO: how long to wait for more frames?
                 //wait a short time for further frames
-                let frame = match timeout(Duration::from_millis(1), mux_rx.next()).await {
+                let frame = match timeout(Duration::from_micros(100), mux_rx.next()).await {
                     Ok(fo) => match fo {
                         None => {
                             return Ok(());
