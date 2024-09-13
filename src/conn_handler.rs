@@ -243,7 +243,8 @@ where
         {
             cwnd_sample = *cwnd.lock().unwrap();
         }
-        if total_bytes - last_ackd_bytes >= min(flowwnd_sample, cwnd_sample.0) as u64 {
+        // TODO only works with 16 * at the moment
+        if total_bytes - last_ackd_bytes >= 16 * min(flowwnd_sample, cwnd_sample.0) as u64 {
             let mut illegal_ack = false;
 
             debug!("ACK required");
