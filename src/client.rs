@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::task::spawn_blocking;
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 
 #[derive(Debug)]
 pub struct ClientConfig {
