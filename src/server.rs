@@ -31,10 +31,7 @@ impl Server {
         //HashMap for client IPs
         //let mut output_map: HashMap<u32, SocketAddr> = HashMap::new();
         let output_map: Arc<Mutex<HashMap<u32, SocketAddr>>> = Arc::new(Mutex::new(HashMap::new()));
-        let mut loss_sim: Option<Arc<Mutex<LossSimulation>>> = match self.loss_sim.clone() {
-            Some(loss_sim) => Some(Arc::new(Mutex::new(loss_sim))),
-            None => None,
-        };
+        let mut loss_sim = self.loss_sim.clone().map(|loss_sim| Arc::new(Mutex::new(loss_sim)));
 
         //HashMap for connection handlers
         let mut input_map: HashMap<u32, mpsc::Sender<Packet>> = HashMap::new();
