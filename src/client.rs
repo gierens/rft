@@ -234,8 +234,8 @@ impl Client {
                 let stream_id = frame.stream_id();
                 if stream_id == 0 {
                     // TODO: handle control frames
-                    error!(
-                        "Received unhandled control frame. Is this important? ¯\\_(ツ)_/¯: {:?}",
+                    debug!(
+                        "Received unhandled control frame. Not implemented: {:?}",
                         frame
                     );
                     continue;
