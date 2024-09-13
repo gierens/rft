@@ -207,6 +207,9 @@ impl Client {
                     assembler_sink
                         .send(AckFrame::new(last_recv_packet_id).into())
                         .await?;
+                    assembler_sink
+                        .send(AckFrame::new(last_recv_packet_id).into())
+                        .await?;
                     continue;
                 }
                 Err(_) => {
@@ -234,6 +237,13 @@ impl Client {
                     last_recv_packet_id + 1,
                     _recv_packet_id
                 );
+                assembler_sink
+                    .send(AckFrame::new(last_recv_packet_id).into())
+                    .await?;
+                assembler_sink
+                    .send(AckFrame::new(last_recv_packet_id).into())
+                    .await?;
+                continue;
             }
             last_recv_packet_id = _recv_packet_id;
             assembler_sink
