@@ -1,7 +1,7 @@
 use rand::{rngs::ThreadRng, Rng};
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct LossSimulation {
     rng: ThreadRng,
     p: f64,
@@ -30,9 +30,11 @@ impl LossSimulation {
         }
     }
 
-    pub fn is_next(&mut self) -> bool {
+    pub fn drop(&mut self) -> bool {
         let prob = if self.state { self.q } else { self.p };
         self.state = self.rng.gen_bool(prob);
         self.state
     }
 }
+
+unsafe impl Send for LossSimulation {}
