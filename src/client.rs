@@ -138,7 +138,7 @@ impl Client {
                                         ack_frame = ack_frame2;
                                     }
                                     Frame::Error(error_frame) => {
-                                        warn!("Received error from writer: {}, terminating stream {}", error_frame.message(), error_frame.stream_id());
+                                        warn!("Received error from writer: {} for stream {}, ignoring", error_frame.message(), error_frame.stream_id());
                                         continue;
                                     }
                                     _ => {
@@ -154,7 +154,7 @@ impl Client {
                         }
                     }
                     Frame::Error(error_frame) => {
-                        warn!("Received error from writer: {}, terminating stream {}", error_frame.message(), error_frame.stream_id());
+                        warn!("Received error from writer: {} for stream {}, ignoring", error_frame.message(), error_frame.stream_id());
                         continue;
                     }
                     _ => {
