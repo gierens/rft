@@ -104,7 +104,7 @@ where
     //read data from file and generate data frames
     let mut last_offset = cmd.offset(); //the first byte not yet sent
     let mut fin = false;
-    let mut read_buf = [0u8; 128]; //TODO: which buf size to use? 128 for tests.
+    let mut read_buf = [0u8; 1024]; //TODO: which buf size to use? 128 for tests.
     loop {
         //check if we are finished
         if last_offset >= read_target && fin {
