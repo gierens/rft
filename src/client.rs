@@ -137,6 +137,10 @@ impl Client {
                                     Frame::Ack(ack_frame2) => {
                                         ack_frame = ack_frame2;
                                     }
+                                    Frame::Error(error_frame) => {
+                                        warn!("Received error from writer: {}, terminating stream {}", error_frame.message(), error_frame.stream_id());
+                                        continue;
+                                    }
                                     _ => {
                                         packet.add_frame(ack_frame.into());
                                         packet.add_frame(frame2);
@@ -148,6 +152,10 @@ impl Client {
                                 break;
                             }
                         }
+                    }
+                    Frame::Error(error_frame) => {
+                        warn!("Received error from writer: {}, terminating stream {}", error_frame.message(), error_frame.stream_id());
+                        continue;
                     }
                     _ => {
                         packet.add_frame(frame);
