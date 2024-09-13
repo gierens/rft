@@ -57,16 +57,16 @@ impl Server {
                     .recv_from(&mut buf)
                     .await
                     .expect("UDP Socket rx error");
-                if let Some(loss_sim) = loss_sim.as_mut() {
-                    if loss_sim.drop() {
-                        warn!("Packet dropped");
-                        continue;
-                    }
-                }
                 let packet = spawn_blocking(move || Packet::parse_buf(&buf[..size]))
                     .await
                     .unwrap()
                     .expect("Failed to parse packet");
+                if let Some(loss_sim) = loss_sim.as_mut() {
+                    if loss_sim.drop() {
+                        warn!("Simulated loss of received packet {} occurred!", packet.packet_id());
+                        continue;
+                    }
+                }
 
                 debug!("Received packet: {:?}", &packet);
 
@@ -130,8 +130,15 @@ impl Server {
         });
 
         //start packet sending
+        let mut loss_sim = self.loss_sim.clone();
         loop {
             let packet = mux_rx.next().await.expect("server mux_rx closed");
+            if let Some(loss_sim) = loss_sim.as_mut() {
+                if loss_sim.drop() {
+                    warn!("Simulated loss of sent packet {} occurred!", packet.packet_id());
+                    continue;
+                }
+            }
             let dest;
             {
                 let omap_mtx = output_map.lock().unwrap();
