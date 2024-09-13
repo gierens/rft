@@ -7,7 +7,7 @@ use futures::{SinkExt, StreamExt};
 use log::{debug, error, info, warn};
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::task::spawn_blocking;
@@ -69,6 +69,10 @@ impl Client {
             Err(e) => return Err(anyhow!("Failed to bind socket: {}", e)),
         };
         let conn = Arc::new(socket);
+        let mut loss_sim: Option<Arc<Mutex<LossSimulation>>> = match self.config.loss_sim.clone() {
+            Some(loss_sim) => Some(Arc::new(Mutex::new(loss_sim))),
+            None => None,
+        };
         info! {"Connected to server at {}:{}", self.config.host, self.config.port};
 
         // TODO: check buffer sizes
@@ -123,7 +127,7 @@ impl Client {
 
         // Start the packet assembler and sender
         let conn_clone = conn.clone();
-        let mut loss_sim = self.config.loss_sim.clone();
+        let mut loss_sim_clone = loss_sim.clone();
         tokio::spawn(async move {
             while let Some(frame) = assembler_rx.next().await {
                 let mut packet = Packet::new(conn_id, packet_id);
@@ -163,8 +167,8 @@ impl Client {
                     }
                 }
 
-                if let Some(loss_sim) = loss_sim.as_mut() {
-                    if loss_sim.drop() {
+                if let Some(loss_sim) = loss_sim_clone.as_mut() {
+                    if loss_sim.lock().unwrap().drop_packet() {
                         warn!("Simulated loss of sent packet {} occurred!", packet.packet_id());
                         continue;
                     }
@@ -231,8 +235,8 @@ impl Client {
                 }
             };
             let packet = Packet::parse_buf(&recv_buf[..size])?;
-            if let Some(loss_sim) = self.config.loss_sim.as_mut() {
-                if loss_sim.drop() {
+            if let Some(loss_sim) = loss_sim.as_mut() {
+                if loss_sim.lock().unwrap().drop_packet() {
                     warn!("Simulated loss of received packet {} occurred!", packet.packet_id());
                     continue;
                 }
