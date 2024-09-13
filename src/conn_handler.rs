@@ -1,7 +1,7 @@
 use crate::stream_handler::stream_handler;
 use crate::wire::{AckFrame, ErrorFrame, FlowControlFrame, Frame, Packet, Size};
 use futures::{Sink, SinkExt, Stream, StreamExt};
-use log::{debug, error};
+use log::{debug, warn, error};
 use std::cmp::min;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -25,8 +25,12 @@ where
     let last_ackd_ids: Arc<(Mutex<[u32; 2]>, Condvar)> =
         Arc::new((Mutex::new([0, 0]), Condvar::new()));
 
+
     //slow start threshold
     let mut cwnd = Arc::new(Mutex::new((4096u32, u32::MAX, false)));
+
+    //number of timeouts
+    let mut ntimeouts = Arc::new(Mutex::new(0));
 
     //create mpsc channel for multiplexing  TODO: what is a good buffer size here?
     let (mut mux_tx, mut mux_rx) = futures::channel::mpsc::channel(16);
@@ -44,6 +48,7 @@ where
     let flowwnd_switch = flowwnd.clone();
     let cwnd_switch = cwnd.clone();
     let last_ackids_switch = last_ackd_ids.clone();
+    let ntimeouts_switch = ntimeouts.clone();
     tokio::spawn(async move {
         //hash map for handler input channels
         let mut handler_map: HashMap<u16, futures::channel::mpsc::Sender<Frame>> = HashMap::new();
@@ -109,6 +114,7 @@ where
                             }
                             Frame::Ack(f) => {
                                 debug!("Received ACK for packet ID {}", f.packet_id());
+                                *ntimeouts_switch.lock().unwrap() = 0;
                                 let (lock, cvar) = &*last_ackids_switch;
                                 let id0;
                                 let id1;
@@ -272,7 +278,30 @@ where
                     {
                         //no new ACK received, wait and continue
                         debug!("Waiting for ACK");
-                        ids = cvar.wait(ids).unwrap();
+                        let mut timeout_result;
+                        (ids, timeout_result) = cvar.wait_timeout(ids, Duration::from_millis(2000)).unwrap();
+                        if timeout_result.timed_out() {
+                            let mut nt = ntimeouts.lock().unwrap();
+                            if *nt > 3 {
+                                error!("Too many timeouts, terminating connection");
+                                // TODO
+                                // packet.add_frame(
+                                //     ErrorFrame::new(0, "Too many timeouts, terminating connection")
+                                //         .into(),
+                                // );
+                                // sink.send(packet).await.expect("could not send packet");
+                                return Ok(());
+                            }
+                            *nt += 1; 
+                            warn!("Timeout waiting for ACK");
+                            tx_packet_id = last_ackd_pckt_id;
+                            total_bytes = last_ackd_bytes;
+                            debug!(
+                                "Double ACK for ID {}, rewinding to byte {}",
+                                last_ackd_pckt_id, last_ackd_bytes
+                            );
+                            break;
+                        }
                         continue;
                     }
                     if ids[0] == ids[1] {
