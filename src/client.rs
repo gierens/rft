@@ -69,7 +69,11 @@ impl Client {
             Err(e) => return Err(anyhow!("Failed to bind socket: {}", e)),
         };
         let conn = Arc::new(socket);
-        let mut loss_sim = self.config.loss_sim.clone().map(|loss_sim| Arc::new(Mutex::new(loss_sim)));
+        let mut loss_sim = self
+            .config
+            .loss_sim
+            .clone()
+            .map(|loss_sim| Arc::new(Mutex::new(loss_sim)));
         info! {"Connected to server at {}:{}", self.config.host, self.config.port};
 
         // TODO: check buffer sizes
