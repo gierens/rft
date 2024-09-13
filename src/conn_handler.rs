@@ -229,7 +229,7 @@ where
     ringbuf_pkts.resize(ringbuf_size, Packet::new(0, 0));
 
     let mut peeked_frame: Vec<Frame> = Vec::new();
-    let max_packet_size = 1024;
+    let max_packet_size = 1280;
 
     loop {
         let mut packet = Packet::new(connection_id, packet_id + 1);
