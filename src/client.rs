@@ -12,6 +12,7 @@ use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::task::spawn_blocking;
 use tokio::time::{sleep, timeout};
+use std::fs::remove_file;
 
 #[derive(Debug)]
 pub struct ClientConfig {
@@ -164,6 +165,7 @@ impl Client {
         debug! {"Sending {} WriteFrames to create files", self.config.files.len()};
         // Send WriteFrame's to ourselves to create the requested files
         for (i, path) in self.config.files.iter().enumerate() {
+            remove_file(path).context(format!("Failed to delete file {:?}", path))?;
             let write_frame = WriteFrame::new((i + 1) as u16, 0, 0, path);
             self.sinks[i].send(Frame::Write(write_frame)).await?;
             debug!("Sent WriteFrame for file: {:?} to sink {}", path, i);
