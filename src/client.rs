@@ -77,7 +77,7 @@ impl Client {
 
         let mut packet_id = 1; // client counter for the packet_id
         let mut last_recv_packet_id;
-        let mut recv_buf: [u8; 1024] = [0; 1024];
+        let mut recv_buf: [u8; 2048] = [0; 2048];
 
         // Start connection establishment and ConnID
         // TODO: handle connection establishment with CID change Frame
