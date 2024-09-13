@@ -318,6 +318,7 @@ where
             };
 
             packet.add_frame(frame);
+            size = packet.size();
 
             loop {
                 //TODO: how long to wait for more frames?
@@ -346,8 +347,8 @@ where
                     break;
                 }
 
-                size += packet.size(); //TODO how to measure actual size?
                 packet.add_frame(frame);
+                size += packet.size(); //TODO how to measure actual size?
             }
 
             //insert packet size to packet size ring buffer
