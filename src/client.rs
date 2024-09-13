@@ -188,7 +188,26 @@ impl Client {
         // Receive the Packets from the server and switch the contained Frames to the corresponding sinks
         while !transmission_complete.iter().all(|&x| x) {
             // TODO send ack on timeout of a few ms maybe
-            let size = conn.recv(&mut recv_buf).await?;
+            let size = match timeout(Duration::from_millis(1000), conn.recv(&mut recv_buf)).await {
+                Ok(Ok(size)) => size,
+                Ok(Err(e)) => {
+                    error!("Failed to receive data from server: {}", e);
+                    assembler_sink
+                        .send(AckFrame::new(last_recv_packet_id).into())
+                        .await?;
+                    continue;
+                }
+                Err(_) => {
+                    error!("Timeout while waiting for data from server");
+                    assembler_sink
+                        .send(AckFrame::new(last_recv_packet_id).into())
+                        .await?;
+                    assembler_sink
+                        .send(AckFrame::new(last_recv_packet_id).into())
+                        .await?;
+                    continue;
+                }
+            };
             let packet = Packet::parse_buf(&recv_buf[..size])?;
             let _recv_packet_id = packet.header().packet_id;
             if _recv_packet_id != last_recv_packet_id + 1 {
